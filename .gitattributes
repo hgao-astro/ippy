@@ -1,1 +1,1 @@
-constants/mysql.py filter=redact_secrets
+ippy/constants/mysql.py filter=redact_secrets

@@ -23,7 +23,7 @@
 # constants/mysql.py
 
 # unfinalized files
-mask/*
+ippy/mask/*
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

@@ -5,16 +5,18 @@
 [![downloads](https://img.shields.io/pypi/dm/autoprof?label=PyPI%20Downloads)](https://libraries.io/pypi/autoprof)
 [![codecov](https://img.shields.io/codecov/c/github/ConnorStoneAstro/AutoProf?logo=codecov)](https://app.codecov.io/gh/ConnorStoneAstro/AutoProf?search=&displayType=list) -->
 
-ippy is Python package for interaction with IPP data products and databases and help perform Czar tasks. It provides various functionalities to facilitate IPP specific fits io and masks manipulation, and Nebulous tools to augment the exisiting neb-* command line tools of IPP.
+ippy is a Python package for interaction with IPP data products and databases and for helping perform Czar tasks. It provides various functionalities to facilitate IPP specific FITS io and masks manipulation, and Nebulous tools to augment the exisiting neb-* command line tools of IPP.
 
 ## Installation
 
 Simple clone the repository and start using it:
 
 ```
-git clone 
+git clone https://github.com/hgao-astro/ippy.git
+cd ippy
+# optionally install a development copy
+pip install -e .
 ```
-
 Note that ippy is only tested with Python 3.6 and above.
 
 

@@ -1,6 +1,5 @@
 import argparse
 import sys
-# import time
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -21,14 +20,16 @@ def main(dateobs, dbname, buffer_time, scan_interval, check_overdone):
     cur_time = datetime.now(timezone.utc)
     if scan_interval is None:
         # if None, set scan_interval to be large enough (now - dateobs 00:00) so alerts will always be triggered
-        scan_interval = cur_time - datetime.strptime(dateobs, "%Y-%m-%d").replace(tzinfo=timezone.utc)
+        scan_interval = cur_time - datetime.strptime(dateobs, "%Y-%m-%d").replace(
+            tzinfo=timezone.utc
+        )
     else:
         scan_interval = timedelta(minutes=scan_interval)
     for db in dbname:
         night = Night(dbname=db, dateobs=dateobs)
         if night.chunks:
-            banner1 = "#"*120
-            banner2 = "-"*135
+            banner1 = "#" * 120
+            banner2 = "-" * 135
             chunks_not_done = [
                 chunk
                 for chunk in night.chunks
@@ -74,7 +75,9 @@ def main(dateobs, dbname, buffer_time, scan_interval, check_overdone):
                             #         f"{quad} needs desperate diff. ETA {90-time_since_chunk_finish_minute} minutes."
                             #     )
                             # else:
-                            print(f"{quad} desperate diff should be queued {time_since_chunk_finish_minute-90} minutes ago.")
+                            print(
+                                f"{quad} desperate diff should be queued {time_since_chunk_finish_minute-90} minutes ago."
+                            )
                         else:
                             print(quad)
                         for v in quad.visits:
@@ -83,9 +86,7 @@ def main(dateobs, dbname, buffer_time, scan_interval, check_overdone):
                             print(diff)
             # print(check_overdone)
             if check_overdone:
-                chunks_over_done = [
-                    chunk for chunk in night.chunks if chunk.over_done
-                ]
+                chunks_over_done = [chunk for chunk in night.chunks if chunk.over_done]
                 if chunks_over_done:
                     print(banner1)
                     print(f"{db.upper()} over processed chunks:")
@@ -147,7 +148,7 @@ if __name__ == "__main__":
         # default=False,  no needed when store_true
         action="store_true",
         # nargs="?",      conflicts with store_true; in this case the optional argument set a flag and does not accept input, while "?" still allows one input at most
-        help="Elect to check for over processed chunks. Default: False."
+        help="Elect to check for over processed chunks. Default: False.",
     )
     parsed_args = parser.parse_args()
     # print(parsed_args)
@@ -157,6 +158,6 @@ if __name__ == "__main__":
         dateobs=parsed_args.date,
         buffer_time=parsed_args.buffer,
         scan_interval=parsed_args.scan_interval,
-        check_overdone=parsed_args.check_overdone
+        check_overdone=parsed_args.check_overdone,
     )
     # print(time.time() - start_time)
