@@ -181,6 +181,7 @@ def classify_problem(missing_nebkey, log_neb_path):
             return missing_nebkey, "ipp1606"
         else:
             return missing_nebkey, None
+    return missing_nebkey, None
 
 
 def clear_faults(diff_id, skycell_ids, label, faults, pretend=True):
@@ -559,28 +560,6 @@ def main(label, pretend=True, limit=None):
                 faults_to_clear_,
                 pretend=pretend,
             )
-    # else:
-    #     for diff_id, skycell_id, old_lable, label_suffix, missing_nebkey in zip(
-    #         diff_ids_to_clear,
-    #         skycell_ids_to_clear,
-    #         labels_to_clear,
-    #         label_suffixes,
-    #         missing_nebkeys_to_clear,
-    #     ):
-    #         print(
-    #             f"diff_id={diff_id}, skycell_id={skycell_id}, missing_nebkey={missing_nebkey}, solution={label_suffix}"
-    #         )
-    #         if diff_id in diff_ids_to_fix:
-    #             print(
-    #                 "clearing faults of the above skycells are blocked until fixable faults of the other skycells are fixed"
-    #             )
-    #         else:
-    #             clear_faults(
-    #                 diff_id,
-    #                 [skycell_id],
-    #                 old_lable + "." + label_suffix,
-    #                 pretend=pretend,
-    #             )
 
 
 if __name__ == "__main__":

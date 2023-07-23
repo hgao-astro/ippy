@@ -5,7 +5,11 @@ import subprocess
 import sys
 import time
 from datetime import datetime
+from itertools import chain
 from pathlib import Path
+
+import numpy as np
+from astropy.table import Table
 
 ippy_parent_dir = str(Path(__file__).resolve().parents[2])
 if ippy_parent_dir not in sys.path:
@@ -82,11 +86,13 @@ if __name__ == "__main__":
     if cnt_valid_expnames == 0:
         for expname_file in args.expnames:
             if Path(expname_file).is_file():
-                with open(expname_file, "r") as f:
-                    for line in f:
-                        if expname_pattern.match(line.strip()):
-                            valid_expnames.append(line.strip())
-                            cnt_valid_expnames += 1
+                t_expnames = Table.read(expname_file, format="ascii.no_header")
+                # flatten the table if it has multiple columns
+                t_expnames = list(chain.from_iterable(np.ravel(t_expnames).tolist()))
+                for expname in t_expnames:
+                    if expname_pattern.match(expname):
+                        valid_expnames.append(expname)
+                        cnt_valid_expnames += 1
         if cnt_valid_expnames == 0:
             raise ValueError("No valid exposure name found.")
     for expname in valid_expnames:

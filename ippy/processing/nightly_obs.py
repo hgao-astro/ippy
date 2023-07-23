@@ -1,8 +1,10 @@
+import subprocess
 import sys
 from datetime import datetime, timedelta, timezone
 from typing import List, Tuple
 
 import MySQLdb
+
 from ippy.misc import infer_inst_from_expname
 
 if sys.version_info[:2] >= (3, 7):
@@ -30,6 +32,11 @@ class Visit:
         visit_num,
         chip_id=None,
         chip_state=None,
+        chip_reduction=None,
+        chip_label=None,
+        chip_workdir=None,
+        chip_dist_group=None,
+        chip_data_group=None,
         cam_id=None,
         cam_state=None,
         cam_quality=None,
@@ -46,6 +53,11 @@ class Visit:
         self.visit_num = visit_num
         self.chip_id = chip_id
         self.chip_state = chip_state
+        self.chip_reduction = chip_reduction
+        self.chip_label = chip_label
+        self.chip_workdir = chip_workdir
+        self.chip_dist_group = chip_dist_group
+        self.chip_data_group = chip_data_group
         self.cam_id = cam_id
         self.cam_state = cam_state
         self.cam_quality = cam_quality
@@ -122,16 +134,15 @@ class WWDiff:
 
 
 class Quad:
-    def __init__(self, quad_name, dbname="gpc1", dateobs=None):
-        if dateobs is None:
-            dateobs = datetime.now(tz=timezone.utc).strftime("%Y-%m-%d")
+    def __init__(self, quad_name, dbname, dateobs):
         self.name = quad_name
         self.dbname = dbname
         self.dateobs = dateobs
         self.visits: List[Visit] = None
         self.wwdiffs: List[WWDiff] = None
-        self.visit_nums: int = None  # number of unique visit numbers
+        self.visit_nums: int = None  # number of total unique visit numbers
         self.needs_desp_diff = None
+        self.is_obs_finished = None
 
     def __str__(self) -> str:
         return f"<Quad {self.name} {'complete' if self.is_complete() else 'incomplete'} and {self.get_proc_status()}: {self.visit_nums} visits, {len(self.wwdiffs)} WWdiffs>"
@@ -186,7 +197,7 @@ class Quad:
 
     def expected_diff_pairs(self) -> List[Tuple[Visit, Visit]]:
         """
-        define the expected diff pairs for a quad based on the current status and determine if the quad needs desperate diff
+        Return the expected diff pairs for a quad based on the current status and determine if the quad needs desperate diff
 
         Returns
         -------
@@ -202,45 +213,121 @@ class Quad:
             v.visit_num: v for v in not_bad_visits
         }  # overwrite the duplicate visits if there are any
         not_bad_visits = list(not_bad_visits.values())
-        if len(not_bad_visits) == 4:
+        if self.is_obs_finished:
+            if len(not_bad_visits) == 3 and all(
+                v.is_processed() for v in not_bad_visits
+            ):
+                self.needs_desp_diff = True
+            else:
+                self.needs_desp_diff = False
+        else:
             self.needs_desp_diff = False
-            return [
-                (not_bad_visits[0], not_bad_visits[1]),
-                (not_bad_visits[2], not_bad_visits[3]),
-            ]
-        elif len(not_bad_visits) == 3:
-            self.needs_desp_diff = True
-            return [
-                (not_bad_visits[0], not_bad_visits[1]),
-                (not_bad_visits[1], not_bad_visits[2]),
-            ]
-        elif len(not_bad_visits) == 2:
-            self.needs_desp_diff = False
-            return [(not_bad_visits[0], not_bad_visits[1])]
-        elif len(not_bad_visits) <= 1:
-            self.needs_desp_diff = False
-            return []
+        if self.is_obs_finished:
+            # if observation is finished, make as many diff pairs as possible (allow desp. diffs)
+            if len(not_bad_visits) == 4:
+                return [
+                    (not_bad_visits[0], not_bad_visits[1]),
+                    (not_bad_visits[2], not_bad_visits[3]),
+                ]
+            elif len(not_bad_visits) == 3:
+                return [
+                    (not_bad_visits[0], not_bad_visits[1]),
+                    (not_bad_visits[1], not_bad_visits[2]),
+                ]
+            elif len(not_bad_visits) == 2:
+                return [(not_bad_visits[0], not_bad_visits[1])]
+            elif len(not_bad_visits) <= 1:
+                return []
+        else:
+            # if observation is not finshed, always stick to v1-v2 and v3-v4
+            not_bad_visits = {v.visit_num: v for v in not_bad_visits}
+            visit1 = not_bad_visits.get(1)
+            visit2 = not_bad_visits.get(2)
+            visit3 = not_bad_visits.get(3)
+            visit4 = not_bad_visits.get(4)
+            if len(not_bad_visits) == 4:
+                return [
+                    (visit1, visit2),
+                    (visit3, visit4),
+                ]
+            elif len(not_bad_visits) == 3 or len(not_bad_visits) == 2:
+                if not None in (visit1, visit2):
+                    return [(visit1, visit2)]
+                elif not None in (visit3, visit4):
+                    return [(visit3, visit4)]
+                else:
+                    return []
+            elif len(not_bad_visits) <= 1:
+                return []
 
-    # no obvious benefit of having a standalone function for determining if a quad needs desp diff
-    # because most of the codes are redundant with the get_proc_status() and expected_diff_pairs() methods
-    # def needs_desp_diff(self):
-    #     if not all([v.is_processed() for v in self.visits]):
-    #         return False
-    #     else:
-    #         expected_diff_pairs = self.expected_diff_pairs()
-    #         ...
+    def queue_wwdiffs(self, pretend=True):
+        """
+        queue the remaining diff pairs for a quad based on the current status
+        """
+        expected_diff_pairs = self.expected_diff_pairs()
+        diffs_to_be_queued = [
+            pair
+            for pair in expected_diff_pairs
+            if pair not in [(d.exp1, d.exp2) for d in self.wwdiffs]
+        ]
+        count_diffs_to_be_queued = len(diffs_to_be_queued)
+        for pair in diffs_to_be_queued:
+            if pair[0].warp_state == "full" and pair[1].warp_state == "full":
+                run_difftool_cmd = [
+                    "difftool",
+                    "-dbname",
+                    self.dbname,
+                    "-definewarpwarp",
+                    "-warp_id",
+                    str(pair[0].warp_id),
+                    "-template_warp_id",
+                    str(pair[1].warp_id),
+                    "-backwards",
+                    "-set_workdir",
+                    pair[0].chip_workdir,
+                    "-set_dist_group",
+                    pair[0].chip_dist_group
+                    if pair[0].chip_dist_group is not None
+                    else "NULL",
+                    "-set_label",
+                    pair[0].chip_label,
+                    "-set_data_group",
+                    pair[0].chip_data_group
+                    if pair[0].chip_data_group is not None
+                    else "NULL",
+                    "-set_reduction",
+                    pair[0].chip_reduction,
+                    "-simple",
+                    "-rerun",
+                ]
+                if pretend:
+                    run_difftool_cmd.append("-pretend")
+                print(" ".join(run_difftool_cmd))
+                subprocess.run(run_difftool_cmd, check=True)
+        return count_diffs_to_be_queued
 
 
 class Chunk:
-    def __init__(self, chunk_name, dbname="gpc1", dateobs=None, ref_exp_id=None):
+    def __init__(
+        self,
+        chunk_name,
+        dbname,
+        dateobs=None,
+        label=None,
+        data_group=None,
+        ref_exp_id=None,
+    ):
         if dateobs is None:
             dateobs = datetime.now(tz=timezone.utc).strftime("%Y-%m-%d")
+        if label is None:
+            label = "%.nightlyscience"
         self.chunk_name = chunk_name
         self.dbname = dbname
         self.dateobs = dateobs
+        self.label = label
+        self.data_group = data_group
         self.quads: List[Quad] = None
         self._ref_exp_id = ref_exp_id
-        # self._ref_diff_id = ref_diff_id
         self.last_visit: Visit = None
         self.obs_status = None
         self.done = None
@@ -249,8 +336,9 @@ class Chunk:
         self.needs_desp_diff = None
         self.quads = None
         self.get_quads()
-        self.get_obs_status()
-        self.get_proc_status()
+        # move the following to get_quads()
+        # self.get_obs_status()
+        # self.get_proc_status()
 
     def __str__(self) -> str:
         return f"<Chunk {self.chunk_name} {self.obs_status}: {len(self.select_quads(completed=True))}/{len(self.quads)} quads completed, {len(self.select_quads(processed=True))}/{len(self.select_quads(over_processed=True))}/{len(self.select_quads(partially_processed=True))} fully/over/partially processed, {self.dbname} on {self.dateobs}>"
@@ -322,13 +410,15 @@ class Chunk:
         else:
             # extra check for cases when the nightly observation stopped at the last exposure of the chunk
             # for various reasons e.g. bad weather, technical issues, etc. in that case if the observation
-            # is paused for more than 30 minutes, the chunk is considered finished (abandoned).
+            # is paused for more than 30 minutes, the chunk observation is considered finished (abandoned).
             if (datetime.now(timezone.utc) - self.last_visit.dateobs) > timedelta(
                 minutes=30
             ):
                 is_obs_finished = True
             else:
                 is_obs_finished = False
+        for q in self.quads:
+            q.is_obs_finished = is_obs_finished
         is_all_quads_completed = all([q.is_complete() for q in self.quads])
         if is_obs_finished:
             if is_all_quads_completed:
@@ -371,7 +461,8 @@ class Chunk:
         # query for exposures and their processing status from chip to warp stage
         query = f"""
         select exp_name, exp_id, dateobs, object, substring_index(comment,' ',-1) visit,
-        chip_id, chipRun.state chip_state, 
+        chip_id, chipRun.state chip_state, chipRun.reduction chip_reduction, chipRun.label chip_label, chipRun.workdir chip_workdir,
+        chipRun.dist_group chip_dist_group, chipRun.data_group chip_data_group,
         cam_id, camRun.state cam_state, camProcessedExp.quality cam_quality, camProcessedExp.fwhm_major cam_fwhm_major,
         warp_id, warpRun.state warp_state 
         from rawExp 
@@ -382,11 +473,12 @@ class Chunk:
         left join warpRun using (fake_id) 
         where exp_id between {self._ref_exp_id[0]} and {self._ref_exp_id[1]}
         and (obs_mode like '%SS%' or obs_mode like '%BRIGHT%') and obs_mode not like 'ENGINEERING' and obs_mode not like 'MANUAL'
-        and exp_type like "OBJECT" and comment like "{self.chunk_name}%visit _"
-        and (chipRun.label is NULL or chipRun.label like "%nightlyscience" or 
-        camRun.label like "%nightlyscience" or warpRun.label like "%nightlyscience")
-        order by exp_id
+        and exp_type like "OBJECT" and comment like "{self.chunk_name}% visit _"
+        and (chipRun.label is NULL or chipRun.label like "{self.label}")
         """
+        if self.data_group is not None:
+            query += f"and chipRun.data_group like '{self.data_group}'"
+        query += f"order by dateobs"
         db_conn = MySQLdb.connect(
             host=SCIDBS1_HOST,
             db=self.dbname,
@@ -397,6 +489,7 @@ class Chunk:
         db_cursor.execute(query)
         result = db_cursor.fetchall()
         if result:
+            self.label = result[0][8]
             quad_names = set(r[3] for r in result)
             self.quads = [
                 Quad(q, dbname=self.dbname, dateobs=self.dateobs) for q in quad_names
@@ -410,12 +503,17 @@ class Chunk:
                     visit_num=int(r[4]),
                     chip_id=r[5],
                     chip_state=r[6],
-                    cam_id=r[7],
-                    cam_state=r[8],
-                    cam_quality=r[9],
-                    cam_fwhm=r[10],
-                    warp_id=r[11],
-                    warp_state=r[12],
+                    chip_reduction=r[7],
+                    chip_label=r[8],
+                    chip_workdir=r[9],
+                    chip_dist_group=r[10],
+                    chip_data_group=r[11],
+                    cam_id=r[12],
+                    cam_state=r[13],
+                    cam_quality=r[14],
+                    cam_fwhm=r[15],
+                    warp_id=r[16],
+                    warp_state=r[17],
                     dbname=self.dbname,
                 )
                 for r in result
@@ -425,27 +523,12 @@ class Chunk:
             self.last_visit = visits[-1]
         else:
             self.quads = []
-            # for quad in self.quads:
-            #     quad.visits = []
+            self.get_obs_status()
+            self.get_proc_status()
             return None
 
         # query for WWdiffs
-
-        # first check if there are any diffs registered this night.
-        # not likely the case, but in principle possible that there are no diffs
-        # when there are already visits in the chunk early in the night
-        # !!! obsolete because we don't need ref_diff_id to speed up the query anymore
-        # if self._ref_diff_id is None:
-        #     self._ref_diff_id = Night._get_first_last_diff_id(
-        #         dbname=self.dbname, dateobs=self.dateobs
-        #     )
-        # if self._ref_diff_id[0] is None or self._ref_diff_id[1] is None:
-        #     for quad in self.quads:
-        #         quad.wwdiffs = []
-        #     db_cursor.close()
-        #     db_conn.close()
-        #     return None
-        # then check if there are any visits of the chunk have been processed to warp stage
+        # check if there are any visits of the chunk have been processed to warp stage
         # if not, then no need to query for WWdiffs
         warp_ids = [v.warp_id for v in visits]
         if not any(warp_ids):
@@ -453,10 +536,12 @@ class Chunk:
                 quad.wwdiffs = []
             db_cursor.close()
             db_conn.close()
+            self.get_obs_status()
+            self.get_proc_status()
             return None
         warp_ids_for_query = [i for i in warp_ids if i is not None]
         # below is a dirty and lazy way to get the query to work when there is only one warp_id
-        # str(tuple(warp_ids_for_query)) will return (id,) instead of (id), which breaks the mysql query
+        # str(tuple(warp_ids_for_query)) will return (id,) instead of (id), which breaks the mysql query.
         # it will not produce duplicate rows in the query result since the *in* clause is equivalent to
         # warp_id = id1 or warp_id = id2 or ...
         if len(warp_ids_for_query) == 1:
@@ -481,8 +566,10 @@ class Chunk:
             left join diffRun using (diff_id) 
             where warp1 in {tuple(warp_ids_for_query)} and stack2 is NULL group by diff_id
             ) as WWdiff 
-            left join publishRun on (diff_id = stage_id) 
-        where client_id = {17 if self.dbname == 'gpc1' else 3}"""
+            left join publishRun on (diff_id = stage_id)
+        """
+        if self.label.endswith(".nightlyscience"):
+            query += f" where client_id = {17 if self.dbname == 'gpc1' else 3}"
         # print(query)
         db_cursor.execute(query)
         result = db_cursor.fetchall()
@@ -512,6 +599,14 @@ class Chunk:
         else:
             for quad in self.quads:
                 quad.wwdiffs = []
+        self.get_obs_status()
+        self.get_proc_status()
+
+    def queue_wwdiffs(self, pretend=True):
+        count = 0
+        for quad in self.quads:
+            count += quad.queue_wwdiffs(pretend=pretend)
+        return count
 
 
 class Night:
@@ -536,16 +631,7 @@ class Night:
         return self.__str__()
 
     def get_chunks(self):
-        # not likely the case but just in case _first_exp_id and _last_exp_id are set to None or the Night instance is not created through the __init__ method
-        # if (
-        #     not hasattr(self, "_first_exp_id")
-        #     or not hasattr(self, "_last_exp_id")
-        #     or self._first_exp_id is None
-        #     or self._last_exp_id is None
-        # ):
-        #     self._first_exp_id, self._last_exp_id = self._get_first_last_exp_id(
-        #         self.dateobs, self.dbname
-        #     )
+        """Get all chunks of the night."""
         if self._first_exp_id is None or self._last_exp_id is None:
             self.chunks = []
             return None
@@ -553,7 +639,7 @@ class Night:
         select exp_name, exp_id, substring_index(comment,' ',1) as chunk_name from rawExp
         where exp_id between {self._first_exp_id} and {self._last_exp_id}
         and (obs_mode like '%SS%' or obs_mode like '%BRIGHT%') and obs_mode not like 'ENGINEERING' and obs_mode not like 'MANUAL'
-        and comment like '%visit%' 
+        and exp_type like "OBJECT" and comment like '%visit%' 
         group by chunk_name 
         order by dateobs
         """
@@ -576,21 +662,9 @@ class Night:
                     dbname=self.dbname,
                     dateobs=self.dateobs,
                     ref_exp_id=(self._first_exp_id, self._last_exp_id),
-                    # ref_diff_id=(self._first_diff_id, self._last_diff_id),
                 )
                 for c in chunk_names
             ]
-            # for chunk in self.chunks:
-            #     chunk._ref_exp_id = (self._first_exp_id, self._last_exp_id)
-            #     chunk._ref_diff_id = (self._first_diff_id, self._last_diff_id)
-            #     chunk.get_quads()
-            #     # !!! note that get_proc_status() must be called before get_obs_status()
-            #     # because the former will call Quad.get_proc_status() which will set
-            #     # the needs_desp_diff status of the quads so that get_obs_status() can
-            #     # make use of them. ugly implementation, need to isolate setting
-            #     # Chunk.needs_desp_diff from get_obs_status.
-            #     chunk.get_proc_status()
-            #     chunk.get_obs_status()
         else:
             self.chunks = []
 
