@@ -47,7 +47,8 @@ def find_missing_nebkey(log_neb_path):
     log_cont = tail(log_path)
     log_cont.reverse()
     err_msg = re.compile(
-        r"couldn't find input|failed to (open|read)", flags=re.IGNORECASE
+        r"couldn't find input|failed to (open|read)|nebulous there_can_be_only_one",
+        flags=re.IGNORECASE,
     )
     neb_key = re.compile(r"\s(neb://\S+)\b")
     for line in log_cont:
@@ -147,7 +148,7 @@ def classify_problem(missing_nebkey, log_neb_path):
                 return missing_nebkey, None
         else:
             return missing_nebkey, None
-    # IPP-1580 or IPP-1826
+    # IPP-1580, IPP-1826, IPP-1987
     # IPP-1826 is a special case when the missing file is not neccessarily in ipp138.0
     # the problem probably arise from experiments trying to fix IPP-1580
     # I include it here because it has a fairly simple solution
@@ -161,12 +162,20 @@ def classify_problem(missing_nebkey, log_neb_path):
             else:
                 return missing_nebkey, None
         else:
-            if (
-                len(culprit_phy_path) == 1
-                and not culprit_phy_path[0]["available"]
-                and culprit_phy_path[0]["volume"].startswith("ipp138.0")
-            ):
-                return missing_nebkey, "ipp1580"
+            if len(culprit_phy_path) == 1:
+                if culprit_phy_path[0]["volume"]:
+                    if (
+                        culprit_phy_path[0]["volume"].startswith("ipp138.0")
+                        and not culprit_phy_path[0]["available"]
+                    ):
+                        return missing_nebkey, "ipp1580"
+                elif (
+                    culprit_phy_path[0]["volume"] is None
+                    and culprit_phy_path[0]["path"] is None
+                ):
+                    return missing_nebkey, "ipp1987"
+                else:
+                    return missing_nebkey, None
             else:
                 return missing_nebkey, None
     # IPP-1606
