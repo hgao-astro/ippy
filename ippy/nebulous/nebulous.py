@@ -45,7 +45,7 @@ def neb_locate(ext_id, no_wildcard=False):
         if "_" in ext_id:
             ext_id = ext_id.replace("_", "\_")
 
-    query = f"select ext_id, uri, name, allocate, available, xattr from storage_object join instance using (so_id) join volume using (vol_id) where ext_id like '{ext_id}'"
+    query = f"select ext_id, uri, name, allocate, available, xattr from storage_object left join instance using (so_id) left join volume using (vol_id) where ext_id like '{ext_id}'"
     neb_conn = MySQLdb.connect(
         host=NEBULOUS_HOST, db="nebulous", user=NEBULOUS_USER, passwd=NEBULOUS_PSW
     )
@@ -58,7 +58,7 @@ def neb_locate(ext_id, no_wildcard=False):
         return [
             {
                 "ext_id": r[0],
-                "path": r[1].replace("file://", ""),
+                "path": r[1].replace("file://", "") if r[1] else None,
                 "volume": r[2],
                 "allocate": r[3],
                 "available": r[4],
