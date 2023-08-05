@@ -72,6 +72,7 @@ def classify_problem(missing_nebkey, log_neb_path):
     missing_subkernel = re.compile(
         r"^neb://\S+\.skycell\.\d+\.\d+(\.WS)?\.dif\.\d+\.subkernel$"
     )
+    missing_psf = re.compile(r"^neb://\S+\.skycell\.\d+\.\d+(\.WS)?\.dif\.\d+\.psf$")
     # missing_subkernel_gone = re.compile(
     #     r"^neb://\S+\.skycell\.\d+\.\d+(\.WS)?\.dif\.\d+\.subkernel\.GONE$"
     # )
@@ -190,6 +191,20 @@ def classify_problem(missing_nebkey, log_neb_path):
             return missing_nebkey, "ipp1606"
         else:
             return missing_nebkey, None
+    # IPP-2009
+    if missing_psf.fullmatch(missing_nebkey):
+        culprit_phy_path = neb_locate(missing_nebkey)
+        if len(culprit_phy_path) == 1:
+            if (
+                culprit_phy_path[0]["volume"] is None
+                and culprit_phy_path[0]["path"] is None
+            ):
+                return missing_nebkey, "ipp2009"
+            else:
+                return missing_nebkey, None
+        else:
+            return missing_nebkey, None
+    # unknown cases
     return missing_nebkey, None
 
 
