@@ -579,14 +579,14 @@ if __name__ == "__main__":
         # default=False,  no needed when store_true
         action="store_true",
         # nargs="?",      conflicts with store_true; in this case the optional argument set a flag and does not accept input, while "?" still allows one input at most
-        help="check only and not do anything. Default: False when not the flag specified.",
+        help="check only and not do anything. Default: False when the flag not specified.",
     )
     parser.add_argument(
         "--limit",
         type=int,
         default=None,
         nargs="?",
-        help="Limits of skycell_ids to check and clear. Useful for diagnose the issue before batch operations. Default is None for no limits.",
+        help="Number limits of skycell_ids to check and clear. Useful for diagnose the issue before batch operations. Default is None for no limits.",
     )
     parsed_args = parser.parse_args()
     main(
