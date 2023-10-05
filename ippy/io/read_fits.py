@@ -7,6 +7,7 @@ from astropy.visualization import ImageNormalize, ZScaleInterval
 from matplotlib import pyplot as plt
 
 from ippy.constants import GPC1, GPC2
+from ippy.nebulous import neb_locate
 
 # some regex for checking file names and OTA or cell patterns
 # chip_fits_pattern = re.compile(r"\.XY[0-7][0-7]\.ch\.fits$")
@@ -17,28 +18,32 @@ from ippy.constants import GPC1, GPC2
 
 
 def read_chip(data, mask=None):
-    data_path = Path(data)
-    # assert chip_fits_pattern.search(path.name)
-    if data_path.is_file():
-        chip_hdul = ChipHDUList.fromfile(data_path, mode="readonly")
-        if mask is not None:
-            chip_hdul.add_mask(mask)
-    else:
-        raise FileNotFoundError(f"No such file: '{str(data)}'")
+    path = Path(data)
+    # check if the FITS file exists
+    if not path.is_file():
+        # check if it is a nebulous path, use the original path because Path(data) will remove extra // in the path
+        if neb_locate(data):
+            path = neb_locate(data)[0]["path"]
+        else:
+            raise FileNotFoundError(f"No such file: '{str(data)}'")
+    chip_hdul = ChipHDUList.fromfile(path, mode="readonly")
+    if mask is not None:
+        chip_hdul.add_mask(mask)
     return chip_hdul
 
 
 def read_cell(data, mask=None, trim_overscan=True):
     path = Path(data)
-    # assert cell_fits_pattern.search(path.name)
-    if path.is_file():
-        cell_hdul = CellHDUList.fromfile(
-            path, mode="readonly", trim_overscan=trim_overscan
-        )
-        if mask is not None:
-            cell_hdul.add_mask(mask)
-    else:
-        raise FileNotFoundError(f"No such file: '{str(data)}'")
+    # check if the FITS file exists
+    if not path.is_file():
+        # check if it is a nebulous path
+        if neb_locate(data):
+            path = neb_locate(data)[0]["path"]
+        else:
+            raise FileNotFoundError(f"No such file: '{str(data)}'")
+    cell_hdul = CellHDUList.fromfile(path, mode="readonly", trim_overscan=trim_overscan)
+    if mask is not None:
+        cell_hdul.add_mask(mask)
     return cell_hdul
 
 
@@ -76,16 +81,19 @@ class ChipHDUList(HDUList):
         if "mask" in [hdu.name for hdu in self]:
             raise ValueError("Mask already exists")
         mask_path = Path(mask_path)
-        if mask_path.is_file():
-            # with ChipHDUList.fromfile(mask_path, mode="readonly") as mask_hdul:
-            mask_hdul = ChipHDUList.fromfile(mask_path, mode="readonly")
-            if mask_hdul[1].data.shape == self[1].data.shape:
-                self.append(mask_hdul[1])
-                self[-1].header["extname"] = "mask"
+        if not mask_path.is_file():
+            # check if it is a nebulous path
+            if neb_locate(mask_path):
+                mask_path = neb_locate(mask_path)[0]["path"]
             else:
-                raise ValueError("Mask shape does not match data shape")
+                raise FileNotFoundError(f"No such file: '{str(mask_path)}'")
+        # with ChipHDUList.fromfile(mask_path, mode="readonly") as mask_hdul:
+        mask_hdul = ChipHDUList.fromfile(mask_path, mode="readonly")
+        if mask_hdul[1].data.shape == self[1].data.shape:
+            self.append(mask_hdul[1])
+            self[-1].header["extname"] = "mask"
         else:
-            raise FileNotFoundError(f"No such file or directory: '{str(mask_path)}'")
+            raise ValueError("Mask shape does not match data shape")
 
     def get_data(self, masked=False):
         chip_img = self[1].data
@@ -235,18 +243,21 @@ class CellHDUList(HDUList):
         if "mask" in [hdu.name for hdu in self]:
             raise ValueError("Mask already exists")
         mask_path = Path(mask_path)
-        if mask_path.is_file():
-            with CellHDUList.fromfile(mask_path, mode="readonly") as mask_hdul:
-                assert len(self) == len(mask_hdul)
-                for idx in range(1, len(self)):
-                    assert mask_hdul[idx].data.shape == self[idx].data.shape
-                for idx in range(1, len(self)):
-                    mask_hdul[idx].header["extname"] = (
-                        mask_hdul[idx].header["extname"] + " mask"
-                    )
-                    self.append(mask_hdul[idx])
-        else:
-            raise FileNotFoundError(f"No such file or directory: '{str(mask_path)}'")
+        if not mask_path.is_file():
+            # check if it is a nebulous path
+            if neb_locate(mask_path):
+                mask_path = neb_locate(mask_path)[0]["path"]
+            else:
+                raise FileNotFoundError(f"No such file: '{str(mask_path)}'")
+        with CellHDUList.fromfile(mask_path, mode="readonly") as mask_hdul:
+            assert len(self) == len(mask_hdul)
+            for idx in range(1, len(self)):
+                assert mask_hdul[idx].data.shape == self[idx].data.shape
+            for idx in range(1, len(self)):
+                mask_hdul[idx].header["extname"] = (
+                    mask_hdul[idx].header["extname"] + " mask"
+                )
+                self.append(mask_hdul[idx])
         # TODO: reimplemente this method using HDUList(hdus=[hdu1, hdu2, ...]) instead of appending one by one
 
     def get_data(self, cell, masked=False):
