@@ -3,8 +3,6 @@ from pathlib import Path
 
 import MySQLdb
 
-from ippy.io import mt_copy2
-
 if sys.version_info[:2] >= (3, 7):
     from ippy.constants import NEBULOUS1
 
@@ -61,6 +59,8 @@ def neb_locate(ext_id, no_wildcard=False):
 
 
 def neb_replace(phy_path, neb_key, review=True, verbose=True):
+    from ippy.io import mt_copy2
+
     if not Path(phy_path).is_file():
         raise ValueError(f"{phy_path} is not a file.")
     instances = neb_locate(neb_key)
