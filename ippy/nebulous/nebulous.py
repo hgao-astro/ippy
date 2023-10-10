@@ -26,14 +26,6 @@ def neb_locate(ext_id, no_wildcard=False):
         pos_slash = ext_id.find("/")
         if pos_slash != -1:
             ext_id = ext_id[pos_slash + 1 :]
-
-    # strip characters before gpc1[2]
-    # if not ext_id.startswith("gpc"):
-    #     pos_gpc = ext_id.find("gpc")
-    #     if pos_gpc != -1:
-    #         ext_id = ext_id[pos_gpc:]
-    #     else:
-    #         raise ValueError(f"{ext_id} is not a valid Nebulous key.")
     # strip duplicate /
     ext_id_parts = ext_id.split("/")
     ext_id_parts = [p for p in ext_id_parts if p]  # remove empty substrings
