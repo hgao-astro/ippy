@@ -547,7 +547,7 @@ class Chunk:
         if len(warp_ids_for_query) == 1:
             warp_ids_for_query.append(warp_ids_for_query[0])
         # I found that query for diffInputSkyfile with warp_ids first then join other tables is as efficient as
-        # limiting diff% tables with max and min diff_id on the given night first and then query them with warp_ids
+        # limiting diff% tables with max and min diff_id on the given night first and then querying them with warp_ids
         # So, I am using the former method here. This provides extra benefit that we can check for diffs
         # that are not processed in time, e.g., as late as on another UTC date. Moreover, this saves the query time for max/min diff_ids.
         # query = f"""
