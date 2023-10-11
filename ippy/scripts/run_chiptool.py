@@ -43,7 +43,7 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--workdir",
-        help="workdir to store the processed products. Default: neb://@HOST@.0/label/reduction.date",
+        help="workdir to store the processed products. Default: neb://@HOST@.0/dbname/label/reduction.date",
     )
     parser.add_argument(
         "--commit",
@@ -51,27 +51,27 @@ if __name__ == "__main__":
         help="Commit to queue the processing. Default: False when the flag is not specified so chiptool will run with -pretend.",
     )
     args = parser.parse_args()
+    label = args.label
+    reduction = args.reduction
     date = datetime.utcnow().strftime("%Y%m%d")
-    if args.workdir is None:
-        args.workdir = f"neb://@HOST@.0/{args.label}/{args.reduction}.{date}"
-    datagroup = f"{args.label}.{args.reduction}.{date}"
+    datagroup = f"{label}.{reduction}.{date}"
     if args.version is not None:
-        args.workdir += f".v{args.version}"
+        # workdir += f".v{args.version}"
         datagroup += f".v{args.version}"
     common_opts = [
         "-definebyquery",
         "-set_reduction",
-        args.reduction,
+        reduction,
         "-set_label",
-        args.label,
+        label,
         "-set_data_group",
         datagroup,
         "-set_end_stage",
         args.end_stage,
         "-set_tess_id",
         "RINGS.V3",
-        "-set_workdir",
-        args.workdir,
+        # "-set_workdir",
+        # args.workdir,
         "-simple",
     ]
     if not args.commit:
@@ -97,10 +97,26 @@ if __name__ == "__main__":
             raise ValueError("No valid exposure name found.")
     for expname in valid_expnames:
         dbname = infer_inst_from_expname(expname)
-        print("chiptool", *common_opts, "-exp_name", expname, "-dbname", dbname)
+        if args.workdir is None:
+            workdir = f"neb://@HOST@.0/{dbname}/{label}/{reduction}.{date}"
+        else:
+            workdir = eval(f"f'neb://@HOST@.0/{args.workdir}'")
+        if args.version is not None:
+            workdir += f".v{args.version}"
+        run_chiptool_cmd = [
+            "chiptool",
+            *common_opts,
+            "-exp_name",
+            expname,
+            "-dbname",
+            dbname,
+            "-set_workdir",
+            workdir,
+        ]
+        print(" ".join(run_chiptool_cmd))
         try:
             run_chiptool = subprocess.run(
-                ["chiptool", *common_opts, "-exp_name", expname, "-dbname", dbname],
+                run_chiptool_cmd,
                 text=True,
                 capture_output=True,
                 check=True,
