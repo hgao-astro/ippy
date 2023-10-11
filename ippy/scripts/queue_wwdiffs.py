@@ -121,7 +121,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--commit",
         action="store_true",
-        help="Commit to queue the processing. Default: False when the flag is not specified so chiptool will run with -pretend.",
+        help="Commit to queue the processing. Default: False when the flag is not specified so difftool will run with -pretend.",
     )
     args = parser.parse_args()
 
