@@ -222,7 +222,8 @@ class CellHDUList(HDUList):
             hdul.camera = GPC1
         hdul.telescope = telescope
         hdul.instrument = instrument
-        if kwargs.get("trim_overscan"):
+        hdul.trim_overscan = kwargs.get("trim_overscan")
+        if hdul.trim_overscan:
             for hdu in hdul[1:]:
                 hdu.data = hdu.data[
                     : hdul.camera.cell_num_pix_row, : hdul.camera.cell_num_pix_col
@@ -312,15 +313,43 @@ class CellHDUList(HDUList):
         for y in range(8):
             for x in range(8):
                 cell = f"xy{x}{y}"
-                # print(cell)
-                cell_img = self.get_data(cell)
-                cell_img = cell_img[:, ::-1]
-                if cell_img.shape != (
+                if cell in self.camera.cells:
+                    cell_img = self.get_data(cell)
+                    cell_img = cell_img[:, ::-1]
+                else:
+                    if self.trim_overscan:
+                        cell_img = np.full(
+                            (
+                                self.camera.cell_num_pix_row,
+                                self.camera.cell_num_pix_col,
+                            ),
+                            np.nan,
+                        )
+                    else:
+                        cell_img = np.full(
+                            (
+                                self.camera.cell_num_pix_row_untrimmed,
+                                self.camera.cell_num_pix_col_untrimmed,
+                            ),
+                            np.nan,
+                        )
+                if self.trim_overscan and cell_img.shape != (
                     self.camera.cell_num_pix_row,
                     self.camera.cell_num_pix_col,
                 ):
                     cell_img = np.full(
                         (self.camera.cell_num_pix_row, self.camera.cell_num_pix_col),
+                        np.nan,
+                    )
+                if not self.trim_overscan and cell_img.shape != (
+                    self.camera.cell_num_pix_row_untrimmed,
+                    self.camera.cell_num_pix_col_untrimmed,
+                ):
+                    cell_img = np.full(
+                        (
+                            self.camera.cell_num_pix_row_untrimmed,
+                            self.camera.cell_num_pix_col_untrimmed,
+                        ),
                         np.nan,
                     )
                 if x == 0:

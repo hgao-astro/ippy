@@ -1,4 +1,5 @@
 CELL_NUM_PIXEL_ROW, CELL_NUM_PIXEL_COL = 598, 590
+CELL_NUM_PIXEL_ROW_UNTRIMMED, CELL_NUM_PIXEL_COL_UNTRIMMED = 608, 624
 CHIP_NUM_PIXEL_ROW, CHIP_NUM_PIXEL_COL = 4868, 4846
 CELL_NUM_PIXEL_ROW_GAP, CELL_NUM_PIXEL_COL_GAP = 12, 18
 CELLS = tuple(f"xy{x}{y}" for x in range(8) for y in range(8))
@@ -16,27 +17,34 @@ import sys
 if sys.version_info[:2] >= (3, 7):
     from dataclasses import dataclass
     from typing import Tuple
+
     @dataclass(frozen=True)
     class Camera:
         name: str
-        otas: Tuple[str,...]
+        otas: Tuple[str, ...]
         chip_num_pix_row = CHIP_NUM_PIXEL_ROW
         chip_num_pix_col = CHIP_NUM_PIXEL_COL
         cells = CELLS
         cell_num_pix_row = CELL_NUM_PIXEL_ROW
         cell_num_pix_col = CELL_NUM_PIXEL_COL
+        cell_num_pix_row_untrimmed = CELL_NUM_PIXEL_ROW_UNTRIMMED
+        cell_num_pix_col_untrimmed = CELL_NUM_PIXEL_COL_UNTRIMMED
         cell_num_pix_row_gap = CELL_NUM_PIXEL_ROW_GAP
         cell_num_pix_col_gap = CELL_NUM_PIXEL_COL_GAP
+
         @property
         def num_chips(self):
             return len(self.otas)
+
         @property
         def num_cell_per_chip(self):
             return len(self.cells)
+
         @property
         def num_cell_per_row(self):
             xs = [int(cell[2]) for cell in self.cells]
             return max(xs) + 1
+
         @property
         def num_cell_per_col(self):
             ys = [int(cell[3]) for cell in self.cells]
