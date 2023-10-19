@@ -569,7 +569,7 @@ class Chunk:
             left join publishRun on (diff_id = stage_id)
         """
         if self.label.endswith(".nightlyscience"):
-            query += f" where client_id = {17 if self.dbname == 'gpc1' else 3}"
+            query += f" where client_id is NULL or client_id = {17 if self.dbname == 'gpc1' else 3}"
         # print(query)
         db_cursor.execute(query)
         result = db_cursor.fetchall()
