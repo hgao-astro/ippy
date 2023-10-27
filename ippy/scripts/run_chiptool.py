@@ -86,7 +86,7 @@ if __name__ == "__main__":
     if cnt_valid_expnames == 0:
         for expname_file in args.expnames:
             if Path(expname_file).is_file():
-                t_expnames = Table.read(expname_file, format="ascii.no_header")
+                t_expnames = Table.read(expname_file, format="ascii")
                 # flatten the table if it has multiple columns
                 t_expnames = list(chain.from_iterable(np.ravel(t_expnames).tolist()))
                 for expname in t_expnames:
