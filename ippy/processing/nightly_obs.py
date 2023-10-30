@@ -14,7 +14,8 @@ if sys.version_info[:2] >= (3, 7):
     SCIDBS1_USER = SCIDBS1.user
     SCIDBS1_PSW = SCIDBS1.password
 else:
-    from ippy.constants import MYSQL_PSW_READ_ONLY, MYSQL_USER_READ_ONLY, SCIDBS1
+    from ippy.constants import (MYSQL_PSW_READ_ONLY, MYSQL_USER_READ_ONLY,
+                                SCIDBS1)
 
     SCIDBS1_HOST = SCIDBS1
     SCIDBS1_USER = MYSQL_USER_READ_ONLY
@@ -260,19 +261,21 @@ class Quad:
             elif len(not_bad_visits) <= 1:
                 return []
 
-    def queue_wwdiffs(self, pretend=True):
+    def queue_wwdiffs(self, pretend=True, verbose=False):
         """
         queue the remaining diff pairs for a quad based on the current status
         """
         expected_diff_pairs = self.expected_diff_pairs()
-        diffs_to_be_queued = [
+        diffs_to_queue = [
             pair
             for pair in expected_diff_pairs
             if pair not in [(d.exp1, d.exp2) for d in self.wwdiffs]
         ]
-        count_diffs_to_be_queued = len(diffs_to_be_queued)
-        for pair in diffs_to_be_queued:
+        count_diffs_to_queue = len(diffs_to_queue)
+        count_diffs_can_be_queued = 0
+        for pair in diffs_to_queue:
             if pair[0].warp_state == "full" and pair[1].warp_state == "full":
+                count_diffs_can_be_queued += 1
                 run_difftool_cmd = [
                     "difftool",
                     "-dbname",
@@ -302,9 +305,20 @@ class Quad:
                 ]
                 if pretend:
                     run_difftool_cmd.append("-pretend")
-                print(" ".join(run_difftool_cmd))
-                subprocess.run(run_difftool_cmd, check=True)
-        return count_diffs_to_be_queued
+                if verbose:
+                    print(" ".join(run_difftool_cmd))
+                try:
+                    run_difftool = subprocess.run(
+                        run_difftool_cmd, check=True, text=True, capture_output=True
+                    )
+                    if verbose:
+                        print(run_difftool.stdout)
+                except subprocess.CalledProcessError as e:
+                    print(
+                        f"Command '{' '.join(e.cmd)}' returned non-zero exit status, please check its stderr below."
+                    )
+                    print(e.stderr)
+        return count_diffs_to_queue, count_diffs_can_be_queued
 
 
 class Chunk:
@@ -603,10 +617,12 @@ class Chunk:
         self.get_proc_status()
 
     def queue_wwdiffs(self, pretend=True):
-        count = 0
+        count_diffs_to_queue = 0
+        count_diffs_can_be_queued = 0
         for quad in self.quads:
-            count += quad.queue_wwdiffs(pretend=pretend)
-        return count
+            count_diffs_to_queue += quad.queue_wwdiffs(pretend=pretend)[0]
+            count_diffs_can_be_queued += quad.queue_wwdiffs(pretend=pretend)[1]
+        return count_diffs_to_queue, count_diffs_can_be_queued
 
 
 class Night:

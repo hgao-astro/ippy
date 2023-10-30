@@ -123,10 +123,18 @@ if __name__ == "__main__":
         action="store_true",
         help="Commit to queue the processing. Default: False when the flag is not specified so difftool will run with -pretend.",
     )
+    parser.add_argument(
+        "--verbose",
+        action="store_true",
+        help="Print extra info when checking. Default: False when the flag is not specified so will only print details of chunk/quad when there are diffs to be queued.",
+    )
     args = parser.parse_args()
 
     while True:
-        print(datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+        print("#" * 120)
+        print(
+            "Checking chunk/quad status " + datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        )
         chunk_dateobs_pair = get_chunk_and_dateobs(
             dbname=args.dbname,
             label=args.label,
@@ -145,23 +153,31 @@ if __name__ == "__main__":
                 label=args.label,
                 data_group=args.data_group,
             )
+            # check if any quads have more than 2 copy of the same visit
+            # that suggests the chunk/quad have been processed with the same lable more than once
+            # need extra info to locate exactly the chunk/quad that needs wwdiffs, e.g., data_group
+            if any(len(quad.visits) >= 8 for quad in chunk.quads):
+                raise ValueError(
+                    f"{chunk.chunk_name} {quad.name} have been processed with the same label for more than once. Needs extra info to locate the chunk/quad. Please supply data_group."
+                )
+            print("=" * 120)
             print(chunk)
             for quad in chunk.quads:
-                print(quad)
-                for visit in quad.visits:
-                    print(visit)
-                for wwdiff in quad.wwdiffs:
-                    print(wwdiff)
-                # check if any quads have more than 2 copy of the same visit
-                # that suggests the chunk/quad have been processed with the same lable more than once
-                # need extra info to locate exactly the chunk/quad that needs wwdiffs, e.g., data_group
-                if len(quad.visits) >= 8:
-                    raise ValueError(
-                        f"{chunk.chunk_name} {quad.name} have been processed with the same label for more than once. Needs extra info to locate the chunk/quad. Please supply data_group."
-                    )
-            count_diffs_to_queue += chunk.queue_wwdiffs(pretend=not args.commit)
+                (
+                    count_diffs_to_queue_this_quad,
+                    count_diffs_queued_this_quad,
+                ) = quad.queue_wwdiffs(pretend=True, verbose=False)
+                count_diffs_to_queue += count_diffs_to_queue_this_quad
+                if args.verbose or count_diffs_queued_this_quad > 0:
+                    print("-" * 120)
+                    print(quad)
+                    for visit in quad.visits:
+                        print(visit)
+                    for wwdiff in quad.wwdiffs:
+                        print(wwdiff)
+                quad.queue_wwdiffs(pretend=not args.commit, verbose=True)
         if count_diffs_to_queue == 0:
-            print("No more WWdiffs to queue.")
+            print("No more WWdiffs to queue. Aborting the scanning.")
             break
         else:
             time.sleep(args.check_interval)
