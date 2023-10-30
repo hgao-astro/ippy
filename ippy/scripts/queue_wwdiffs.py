@@ -154,11 +154,12 @@ if __name__ == "__main__":
                 data_group=args.data_group,
             )
             # check if any quads have more than 2 copy of the same visit
-            # that suggests the chunk/quad have been processed with the same lable more than once
+            # that suggests the chunk/quad have been processed with the same label more than once
             # need extra info to locate exactly the chunk/quad that needs wwdiffs, e.g., data_group
+            # note that sometimes a quad may have more than four visits when there is an overridden visit, so use 8 here
             if any(len(quad.visits) >= 8 for quad in chunk.quads):
                 raise ValueError(
-                    f"{chunk.chunk_name} {quad.name} have been processed with the same label for more than once. Needs extra info to locate the chunk/quad. Please supply data_group."
+                    f"{chunk.chunk_name} has been processed with the same label for more than once. Needs extra info to locate the chunk/quad. Please try supplying data_group."
                 )
             print("=" * 120)
             print(chunk)
