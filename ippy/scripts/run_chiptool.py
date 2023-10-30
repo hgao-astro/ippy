@@ -8,6 +8,7 @@ from datetime import datetime
 from itertools import chain
 from pathlib import Path
 
+import MySQLdb
 import numpy as np
 from astropy.table import Table
 
@@ -15,6 +16,7 @@ ippy_parent_dir = str(Path(__file__).resolve().parents[2])
 if ippy_parent_dir not in sys.path:
     sys.path.append(ippy_parent_dir)
 
+from ippy.constants import SCIDBS1
 from ippy.misc import expname_pattern, infer_inst_from_expname
 
 if __name__ == "__main__":
@@ -24,10 +26,32 @@ if __name__ == "__main__":
     parser.add_argument("label", help="The label for this run")
     parser.add_argument("reduction", help="The reduction class for this run")
     parser.add_argument(
-        "expnames",
+        "--expnames",
         type=str,
-        nargs="+",
+        nargs="*",
+        # default=None,
         help="Exposure names or files that contain the exposure names to be processed. Separated by space.",
+    )
+    parser.add_argument(
+        "--chunk",
+        type=str,
+        nargs="*",
+        # default=None,
+        help="Chunk of exposures to be processed. Dateobs must be supplied as well. Separated by space.",
+    )
+    parser.add_argument(
+        "--dateobs",
+        type=str,
+        nargs="*",
+        # default=None,
+        help="Dateobs of chunks of exposures to be processed. Must be in the same order. Separated by space.",
+    )
+    parser.add_argument(
+        "--dbname",
+        type=str,
+        nargs="*",
+        # default=None,
+        help="dbname of chunks of exposures to be processed. Must be in the same order. Separated by space.",
     )
     parser.add_argument(
         "--version",
@@ -76,25 +100,51 @@ if __name__ == "__main__":
     ]
     if not args.commit:
         common_opts.append("-pretend")
-    cnt_valid_expnames = 0
-    valid_expnames = []
-    for expname in args.expnames:
-        if expname_pattern.match(expname):
-            valid_expnames.append(expname)
-            cnt_valid_expnames += 1
-    # maybe the user provided a file containing expnames
-    if cnt_valid_expnames == 0:
-        for expname_file in args.expnames:
-            if Path(expname_file).is_file():
-                t_expnames = Table.read(expname_file, format="ascii")
-                # flatten the table if it has multiple columns
-                t_expnames = list(chain.from_iterable(np.ravel(t_expnames).tolist()))
-                for expname in t_expnames:
-                    if expname_pattern.match(expname):
-                        valid_expnames.append(expname)
-                        cnt_valid_expnames += 1
+    if args.expnames is not None:
+        cnt_valid_expnames = 0
+        valid_expnames = []
+        for expname in args.expnames:
+            if expname_pattern.match(expname):
+                valid_expnames.append(expname)
+                cnt_valid_expnames += 1
+        # maybe the user provided a file containing expnames
         if cnt_valid_expnames == 0:
-            raise ValueError("No valid exposure name found.")
+            for expname_file in args.expnames:
+                if Path(expname_file).is_file():
+                    t_expnames = Table.read(expname_file, format="ascii")
+                    # flatten the table if it has multiple columns
+                    t_expnames = list(
+                        chain.from_iterable(np.ravel(t_expnames).tolist())
+                    )
+                    for expname in t_expnames:
+                        if expname_pattern.match(expname):
+                            valid_expnames.append(expname)
+                            cnt_valid_expnames += 1
+            if cnt_valid_expnames == 0:
+                raise ValueError("No valid exposure name found.")
+    else:
+        valid_expnames = []
+        for chunk, dateobs, dbname in zip(args.chunk, args.dateobs, args.dbname):
+            if chunk is None or dateobs is None or dbname is None:
+                raise ValueError(
+                    "chunk, dateobs, and dbname must be supplied together."
+                )
+            db_conn = MySQLdb.connect(
+                host=SCIDBS1.node,
+                user=SCIDBS1.user,
+                passwd=SCIDBS1.password,
+                db=dbname,
+            )
+            db_cursor = db_conn.cursor()
+            query = f"""select exp_name, dateobs, reduction from rawExp  where (obs_mode like '%SS%' or obs_mode like '%BRIGHT%') 
+            and obs_mode not like 'ENGINEERING' and obs_mode not like 'MANUAL' and exp_type like 'OBJECT' and comment like '%visit%' and 
+            comment like '{chunk}%' and dateobs like '{dateobs}%'"""
+            db_cursor.execute(query)
+            result = db_cursor.fetchall()
+            db_cursor.close()
+            db_conn.close()
+            valid_expnames.extend([r[0] for r in result])
+
     for expname in valid_expnames:
         dbname = infer_inst_from_expname(expname)
         if args.workdir is None:
