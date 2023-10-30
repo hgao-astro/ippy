@@ -186,6 +186,7 @@ if __name__ == "__main__":
                         print(wwdiff)
                 quad.queue_wwdiffs(pretend=not args.commit, verbose=True)
         if count_diffs_to_queue == 0:
+            print("#" * 120)
             print("No more WWdiffs to queue. Aborting the scanning.")
             break
         else:
