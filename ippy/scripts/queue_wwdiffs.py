@@ -28,26 +28,25 @@ else:
     SCIDBS1_PSW = MYSQL_PSW_READ_ONLY
 
 
-def get_chunk_and_dateobs(dbname, label, data_group, chunks, dateobs):
+def get_chunk_and_dateobs(dbname, label, data_group, chunks, dateobses):
     query = f"""
         select exp_name, exp_id, date(dateobs) dateobs1, substring_index(comment,' ',1) chunk_name, chipRun.label
         from rawExp 
         left join chipRun using (exp_id)
-        left join camRun using (chip_id) 
-        left join camProcessedExp using (cam_id)
-        left join fakeRun using (cam_id) 
-        left join warpRun using (fake_id) 
-        where chipRun.label like "{label}"
+        where chipRun.label like "{label}" and (obs_mode like '%SS%' or obs_mode like '%BRIGHT%') and 
+        obs_mode not like 'ENGINEERING' and obs_mode not like 'MANUAL' and exp_type like 'OBJECT'
         """
     if data_group is not None:
         query += f'and chipRun.data_group like "{data_group}"'
-    if chunks is not None and dateobs is not None:
+    if chunks is not None and dateobses is not None:
         query += " and ("
-        for idx, chunk in enumerate(chunks):
+        for idx, (chunk, dateobs) in enumerate(zip(chunks, dateobses)):
             if idx != 0:
-                query += f' or comment like "{chunk}% visit _"'
+                query += f' or (comment like "{chunk}% visit _" and dateobs like "{dateobs}%")'
             else:
-                query += f' comment like "{chunk}% visit _"'
+                query += (
+                    f' (comment like "{chunk}% visit _" and dateobs like "{dateobs}%")'
+                )
         query += ")"
     query += " group by chunk_name, dateobs1 order by dateobs1"
     # print(query)
@@ -68,15 +67,20 @@ def get_chunk_and_dateobs(dbname, label, data_group, chunks, dateobs):
         chunk_dateobs_pairs_from_db = set(zip(chunks_from_db, dateobs_from_db))
     else:
         return None
-    if chunks is not None and dateobs is not None:
+    if chunks is not None and dateobses is not None:
         # check if chunks and dateobs are of the same length
-        if len(chunks) != len(dateobs):
+        if len(chunks) != len(dateobses):
             raise ValueError(f"chunks and dateobs must be of the same length.")
         # check if chunks and dateobs overlap with chunks and dateobs from the database
-        chunk_dateobs_pairs = set(zip(chunks, dateobs))
-        if not chunk_dateobs_pairs.issubset(chunk_dateobs_pairs_from_db):
+        chunk_dateobs_pairs = set(zip(chunks, dateobses))
+        if not chunk_dateobs_pairs == chunk_dateobs_pairs_from_db:
+            not_found_chunk_dateobs_pairs = (
+                chunk_dateobs_pairs - chunk_dateobs_pairs_from_db
+            )
+            not_found_chunks = [p[0] for p in not_found_chunk_dateobs_pairs]
+            not_found_dateobses = [p[1] for p in not_found_chunk_dateobs_pairs]
             raise ValueError(
-                f"Input chunks {chunks} on dateobs {dateobs} not found in the database for label {label}."
+                f"Input chunks {not_found_chunks} on dateobs {not_found_dateobses} not found in the database for label {label}."
             )
         else:
             chunk_dateobs_pairs_from_db = chunk_dateobs_pairs
@@ -113,7 +117,7 @@ if __name__ == "__main__":
         help="A list of chunk names separated by space.",
     )
     parser.add_argument(
-        "--dateobs",
+        "--dateobses",
         type=str,
         nargs="+",
         help="A list of dateobs that correspond to the chunk names separated by space. Must be of the same length as chunks.",
@@ -129,6 +133,10 @@ if __name__ == "__main__":
         help="Print extra info when checking. Default: False when the flag is not specified so will only print details of chunk/quad when there are diffs to be queued.",
     )
     args = parser.parse_args()
+    if len(args.chunks) != len(args.dateobses):
+        raise ValueError(
+            f"chunks and dateobs must be of the same length. {args.chunks} and {args.dateobses} were given."
+        )
 
     while True:
         print("#" * 120)
@@ -140,7 +148,7 @@ if __name__ == "__main__":
             label=args.label,
             data_group=args.data_group,
             chunks=args.chunks,
-            dateobs=args.dateobs,
+            dateobses=args.dateobses,
         )
         if chunk_dateobs_pair is None:
             raise ValueError(f"No chunks found in the database for label {args.label}.")
