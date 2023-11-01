@@ -307,9 +307,7 @@ class CellHDUList(HDUList):
         """
         assemble the cell images into a chip image
         """
-        # xs = [int(cell[2]) for cell in CELLS]
-        # ys = [int(cell[3]) for cell in CELLS]
-        # cell_row_list = []
+
         for y in range(8):
             for x in range(8):
                 cell = f"xy{x}{y}"
