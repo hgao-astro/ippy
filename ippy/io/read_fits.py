@@ -317,7 +317,13 @@ class CellHDUList(HDUList):
                 "No mask available. Please use add_mask() to add a mask first."
             )
 
-    def assemble_chip(self, trim_overscan=True, mask_data=False, subtract_bias=False):
+    def assemble_chip(
+        self,
+        trim_overscan=True,
+        mask_data=False,
+        subtract_bias=False,
+        subtract_bkg=False,
+    ):
         """
         assemble the cell images into a chip image
         """
@@ -333,8 +339,26 @@ class CellHDUList(HDUList):
                             : self.camera.cell_num_pix_col,
                         ]
                         self.trim_overscan = True
-                    if subtract_bias and (bias_mean:=self.get_kw_val(cell, "BIASLVL")) is not None:
+                    if (
+                        subtract_bias
+                        and (bias_mean := self.get_kw_val(cell, "BIASLVL")) is not None
+                    ):
                         cell_img -= bias_mean
+                    if (
+                        subtract_bkg
+                        and (bkg_estimate := self.get_kw_val(cell, "BACKEST"))
+                        is not None
+                    ):
+                        cell_img[
+                            : self.camera.cell_num_pix_row,
+                            : self.camera.cell_num_pix_col,
+                        ] = (
+                            cell_img[
+                                : self.camera.cell_num_pix_row,
+                                : self.camera.cell_num_pix_col,
+                            ]
+                            - bkg_estimate
+                        )
                     if mask_data:
                         cell_img[
                             : self.camera.cell_num_pix_row,
