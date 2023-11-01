@@ -279,6 +279,20 @@ class CellHDUList(HDUList):
             cell_img[cell_mk_img > 0] = np.nan
         return cell_img
 
+    def get_kw_val(self, cell, kw):
+        """
+        return the value of a keyword kw in the header of the cell
+
+        Args:
+            cell (str): cell name, e.g. from 'xy00' to 'xy77'
+            kw (str): keyword name
+
+        Returns:
+            str: keyword value
+        """
+        assert cell in self.camera.cells
+        return self[cell].header.get(kw)
+
     def get_mask(self, cell):
         """
         return the mask data of the cell
@@ -303,7 +317,7 @@ class CellHDUList(HDUList):
                 "No mask available. Please use add_mask() to add a mask first."
             )
 
-    def assemble_chip(self):
+    def assemble_chip(self, trim_overscan=True, mask_data=False, subtract_bias=False):
         """
         assemble the cell images into a chip image
         """
@@ -313,6 +327,19 @@ class CellHDUList(HDUList):
                 cell = f"xy{x}{y}"
                 if cell in self.camera.cells:
                     cell_img = self.get_data(cell)
+                    if trim_overscan:
+                        cell_img = cell_img[
+                            : self.camera.cell_num_pix_row,
+                            : self.camera.cell_num_pix_col,
+                        ]
+                        self.trim_overscan = True
+                    if subtract_bias and (bias_mean:=self.get_kw_val(cell, "BIASLVL")) is not None:
+                        cell_img -= bias_mean
+                    if mask_data:
+                        cell_img[
+                            : self.camera.cell_num_pix_row,
+                            : self.camera.cell_num_pix_col,
+                        ] = np.nan
                     cell_img = cell_img[:, ::-1]
                 else:
                     if self.trim_overscan:
