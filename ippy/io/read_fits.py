@@ -334,41 +334,6 @@ class CellHDUList(HDUList):
                 cell = f"xy{x}{y}"
                 if cell in self.camera.cells:
                     cell_img = self.get_data(cell)
-                    if trim_overscan:
-                        cell_img = cell_img[
-                            : self.camera.cell_num_pix_row,
-                            : self.camera.cell_num_pix_col,
-                        ]
-                        self.trim_overscan = True
-                    if (
-                        subtract_bias
-                        and (bias_mean := self.get_kw_val(cell, "BIASLVL")) is not None
-                    ):
-                        cell_img -= bias_mean
-                    if (
-                        subtract_bkg
-                        and (bkg_estimate := self.get_kw_val(cell, "BACKEST"))
-                        is not None
-                    ):
-                        cell_img[
-                            : self.camera.cell_num_pix_row,
-                            : self.camera.cell_num_pix_col,
-                        ] = (
-                            cell_img[
-                                : self.camera.cell_num_pix_row,
-                                : self.camera.cell_num_pix_col,
-                            ]
-                            - bkg_estimate
-                        )
-                    if mask_data:
-                        cell_img[
-                            : self.camera.cell_num_pix_row,
-                            : self.camera.cell_num_pix_col,
-                        ] = np.nan
-                    if mask_cells is not None:
-                        if cell in mask_cells:
-                            cell_img[:, :] = np.nan
-                    cell_img = cell_img[:, ::-1]
                 else:
                     if self.trim_overscan:
                         cell_img = np.full(
@@ -405,6 +370,41 @@ class CellHDUList(HDUList):
                         ),
                         np.nan,
                     )
+                if trim_overscan:
+                    cell_img = cell_img[
+                        : self.camera.cell_num_pix_row,
+                        : self.camera.cell_num_pix_col,
+                    ]
+                    self.trim_overscan = True
+                if (
+                    subtract_bias
+                    and (bias_mean := self.get_kw_val(cell, "BIASLVL")) is not None
+                ):
+                    cell_img -= bias_mean
+                if (
+                    subtract_bkg
+                    and (bkg_estimate := self.get_kw_val(cell, "BACKEST")) is not None
+                ):
+                    cell_img[
+                        : self.camera.cell_num_pix_row,
+                        : self.camera.cell_num_pix_col,
+                    ] = (
+                        cell_img[
+                            : self.camera.cell_num_pix_row,
+                            : self.camera.cell_num_pix_col,
+                        ]
+                        - bkg_estimate
+                    )
+                if mask_data:
+                    cell_img[
+                        : self.camera.cell_num_pix_row,
+                        : self.camera.cell_num_pix_col,
+                    ] = np.nan
+                if mask_cells is not None:
+                    if cell in mask_cells:
+                        cell_img[:, :] = np.nan
+                # reverse the cell pixels in the x direction
+                cell_img = cell_img[:, ::-1]
                 if x == 0:
                     row_img = cell_img
                 else:
