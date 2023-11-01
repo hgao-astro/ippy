@@ -321,6 +321,7 @@ class CellHDUList(HDUList):
         self,
         trim_overscan=True,
         mask_data=False,
+        mask_cells=None,
         subtract_bias=False,
         subtract_bkg=False,
     ):
@@ -364,6 +365,9 @@ class CellHDUList(HDUList):
                             : self.camera.cell_num_pix_row,
                             : self.camera.cell_num_pix_col,
                         ] = np.nan
+                    if mask_cells is not None:
+                        if cell in mask_cells:
+                            cell_img[:, :] = np.nan
                     cell_img = cell_img[:, ::-1]
                 else:
                     if self.trim_overscan:
