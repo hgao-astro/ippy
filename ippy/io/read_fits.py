@@ -375,7 +375,6 @@ class CellHDUList(HDUList):
                         : self.camera.cell_num_pix_row,
                         : self.camera.cell_num_pix_col,
                     ]
-                    self.trim_overscan = True
                 if (
                     subtract_bias
                     and (bias_mean := self.get_kw_val(cell, "BIASLVL")) is not None
@@ -414,4 +413,6 @@ class CellHDUList(HDUList):
                 chip_img = row_img
             else:
                 chip_img = np.vstack((chip_img, row_img))
+        if trim_overscan:
+            self.trim_overscan = True
         return chip_img
