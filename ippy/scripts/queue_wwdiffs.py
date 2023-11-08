@@ -133,7 +133,12 @@ if __name__ == "__main__":
         help="Print extra info when checking. Default: False when the flag is not specified so will only print details of chunk/quad when there are diffs to be queued.",
     )
     args = parser.parse_args()
-    if len(args.chunks) != len(args.dateobses):
+    # check if chunks and dateobs are of the same length if both are specified
+    if (
+        args.chunks is not None
+        and args.dateobses is not None
+        and len(args.chunks) != len(args.dateobses)
+    ):
         raise ValueError(
             f"chunks and dateobs must be of the same length. {args.chunks} and {args.dateobses} were given."
         )
