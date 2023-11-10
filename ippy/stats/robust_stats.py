@@ -6,7 +6,9 @@ from astropy.stats import sigma_clip
 # from numpy.typing import ArrayLike
 
 
-def sigma_clip_stats(x, sigma=3, sigma_lower=None, sigma_upper=None, axis=None, maxiters=10, ngood_min=1):
+def sigma_clip_stats(
+    x, sigma=3, sigma_lower=None, sigma_upper=None, axis=None, maxiters=10, ngood_min=1
+):
     """
     wrapper of astropy.stats.sigma_clip
 
@@ -35,14 +37,17 @@ def sigma_clip_stats(x, sigma=3, sigma_lower=None, sigma_upper=None, axis=None, 
             return np.nan, np.nan, np.nan, np.nan
         else:
             return mean, median, std, mean_err
-    idx = ngood < ngood_min 
+    idx = ngood < ngood_min
     mean[idx] = np.nan
     median[idx] = np.nan
     std[idx] = np.nan
     mean_err[idx] = np.nan
     return mean, median, std, mean_err
 
-def robust_binned_stats(x, y, *, statistic="mean", bins=10, nsigma=3, maxiters=10, ngood_min=1):
+
+def robust_binned_stats(
+    x, y, *, statistic="mean", bins=10, nsigma=3, maxiters=10, ngood_min=1
+):
     x = np.asarray(x).ravel()
     idx_sort = np.argsort(x)
     x = x[idx_sort]
@@ -59,16 +64,20 @@ def robust_binned_stats(x, y, *, statistic="mean", bins=10, nsigma=3, maxiters=1
             y[i] = y[i][idx_sort]
     if isinstance(bins, int):
         if bins < 1:
-            raise ValueError("bins must be a positive integer when specifying the number of bins")
+            raise ValueError(
+                "bins must be a positive integer when specifying the number of bins"
+            )
         nbins = bins
         bins = np.linspace(x.min(), x.max(), nbins + 1)
     else:
         try:
-            nbins = len(bins) - 1 
+            nbins = len(bins) - 1
         except TypeError:
             raise TypeError("bins must be an integer or a sequence")
         if nbins < 1:
-            raise ValueError("bins must encompass at least one bin when specifying the edges of bins")
+            raise ValueError(
+                "bins must encompass at least one bin when specifying the edges of bins"
+            )
     bins_num = np.digitize(x, bins)
     # include the last point in the last bin, don't want to have a single bin that contains only the last point
     bins_num[-1] = nbins
@@ -78,55 +87,19 @@ def robust_binned_stats(x, y, *, statistic="mean", bins=10, nsigma=3, maxiters=1
         res_ = np.full(nbins, np.nan)
         for i in range(nbins):
             idx_bin = bins_num == i + 1
-            mean, median, std, mean_err = sigma_clip_stats(y_[idx_bin], sigma=nsigma, maxiters=maxiters, ngood_min=ngood_min)
+            mean, median, std, mean_err = sigma_clip_stats(
+                y_[idx_bin], sigma=nsigma, maxiters=maxiters, ngood_min=ngood_min
+            )
             if statistic == "mean":
-                res_[i]= mean
+                res_[i] = mean
             if statistic == "median":
-                res_[i]= median
+                res_[i] = median
             if statistic == "std":
-                res_[i]= std
+                res_[i] = std
             if statistic == "mean err":
-                res_[i]= mean_err
+                res_[i] = mean_err
         res.append(res_)
     if len(res) == 1:
         return res[0]
     else:
         return res
-
-# def robust_stats(x, nsigma=3, return_bounds=False):
-#     """
-#     robust_stats(x, nsigma=3)
-
-#     Parameters
-#     ----------
-#     x : array_like
-#         input data
-#     nsigma : int, optional
-#         n times sigma threshold for selecting data to compute statistics, by default 3.
-
-#     Returns
-#     -------
-#     tuple
-#         mean, median, std, error of mean
-#     """
-
-#     x = np.asarray(x).ravel()
-#     # lower_percentile_choices = [15.9, 2.3, 0.1]
-#     lower_quantile = (1 - erf(nsigma / np.sqrt(2))) / 2
-#     upper_quantile = 1 - lower_quantile
-#     # print(lower_quantile, upper_quantile)
-#     lower_bound = np.nanquantile(x, lower_quantile)
-#     upper_bound = np.nanquantile(x, upper_quantile)
-#     std = (np.nanquantile(x, upper_quantile) - np.nanquantile(x, lower_quantile)) / (
-#         2 * nsigma
-#     )
-#     # x = x[(x > lower_bound) & (x < upper_bound)]
-#     med = np.median(x)
-#     mean = np.mean(x[(x > med - 3 * std) & (x < med + 3 * std)])
-#     mean_err = np.std(x[(x > med - 3 * std) & (x < med + 3 * std)]) / np.sqrt(
-#         x[(x > med - 3 * std) & (x < med + 3 * std)].size
-#     )
-#     if return_bounds:
-#         return mean, med, std, mean_err, med - 3 * std, med + 3 * std
-#     else:
-#         return mean, med, std, mean_err
