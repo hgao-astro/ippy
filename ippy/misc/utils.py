@@ -92,3 +92,109 @@ def find_raw_imfile(exp_name, ota=None):
         return {r[0]: r[1] for r in result}
     else:
         raise ValueError(f"Cannot find raw image file for {exp_name} and OTA {ota}.")
+
+
+def find_active_detrend(time, type, filter=None, dbname="gpc1"):
+    """
+    find active detrend for a given time and type
+
+    Parameters
+    ----------
+    time : str or datetime.datetime
+        time of the observation
+
+    type : str
+        type of detrend, the common ones are "dark", "flat", or "mask"
+
+    dbname : str, optional, should be gpc1 or gpc2. default is gpc1.
+
+    Returns
+    -------
+    int
+        det_id of the active detrend
+
+    Raises
+    ------
+    TypeError
+        when time is not a datetime.datetime object
+    ValueError
+        when type is not "dark" or "flat"
+    """
+    db_conn = MySQLdb.connect(
+        host=SCIDBS1.node, db=dbname, user=SCIDBS1.user, passwd=SCIDBS1.password
+    )
+    db_cur = db_conn.cursor()
+    query = f"""select det_id, iteration, det_type, mode, state, time_begin, time_end, use_begin, use_end 
+    from detRun where det_type like "{type}" and state like 'stop' and (time_begin is NULL or time_begin  <= "{time}") 
+    and (time_end is NULL or time_end >= "{time}") and (use_begin is NULL or use_begin <= "{time}") 
+    and (use_end is NULL or use_end >= "{time}") 
+    """
+    if filter is not None:
+        query += f" and filer like '{filter}'"
+    query += " order by coalesce(time_begin, use_begin) desc"
+    db_cur.execute(query)
+    result = db_cur.fetchone()
+    db_cur.close()
+    db_conn.close()
+    if result:
+        return int(result[0])
+    else:
+        raise ValueError(
+            f"Cannot find {dbname} active detrend for {time} and type {type} and filter {filter}."
+        )
+
+
+def find_detrend_imfile(det_id, ota=None, iteration=None, dbname="gpc1"):
+    """
+    find detrend files based on det_id
+
+    Parameters
+    ----------
+    det_id : int
+        det_id of the detrend
+
+    ota : str or a list of str, optional
+
+    dbname : str, optional, should be gpc1 or gpc2. default is gpc1.
+
+    Returns
+    -------
+    str
+        nebulous paths of detrend files
+
+    Raises
+    ------
+    TypeError
+        when det_id is not an integer
+    ValueError
+        when det_id is not a valid det_id
+    """
+    if not isinstance(det_id, int):
+        det_id = int(det_id)
+    db_conn = MySQLdb.connect(
+        host=SCIDBS1.node, db=dbname, user=SCIDBS1.user, passwd=SCIDBS1.password
+    )
+    db_cur = db_conn.cursor()
+    query = f"select class_id, uri, data_state, fault from  detRegisteredImfile where det_id = {det_id}"
+    if iteration is not None:
+        query += f" and iteration = {iteration}"
+    if ota is not None:
+        if isinstance(ota, str):
+            query += f" and class_id like '{ota}'"
+        elif isinstance(ota, list) and all(isinstance(o, str) for o in ota):
+            # make sure ota has more than one element otherwise tuple(ota) will be (ota[0],) and break the query
+            ota = ota + [ota[-1]]
+            query += f" and class_id in {tuple(ota)}"
+        else:
+            raise TypeError(f"ota must be a string or a list of strings.")
+    db_cur.execute(query)
+    result = db_cur.fetchall()
+    db_cur.close()
+    db_conn.close()
+    if result:
+        # return a dictionary of ota as key and detrended image file paths as values
+        return {r[0]: r[1] for r in result}
+    else:
+        raise ValueError(
+            f"Cannot find detrended file for {dbname} det_id={det_id}, iteration={iteration}, and OTA={ota}."
+        )
