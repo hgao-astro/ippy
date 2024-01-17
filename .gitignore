@@ -1,17 +1,3 @@
-## vscode specifcs
-.vscode/**
-# !.vscode/settings.json
-# !.vscode/tasks.json
-# !.vscode/launch.json
-# !.vscode/extensions.json
-# !.vscode/*.code-snippets
-
-# Local History for Visual Studio Code
-.history/
-
-# Built Visual Studio Code Extensions
-*.vsix
-
 # gitleaks related
 *gitleaks*
 
@@ -19,12 +5,6 @@
 .pre-commit-config.yaml
 
 ## Python specifics
-# files containing sensitive information. Now unnecessary since we have clean/smudge filters in .gitattributes
-# constants/mysql.py
-
-# unfinalized files
-ippy/mask/*
-
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
