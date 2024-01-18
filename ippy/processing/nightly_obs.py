@@ -14,8 +14,7 @@ if sys.version_info[:2] >= (3, 7):
     SCIDBS1_USER = SCIDBS1.user
     SCIDBS1_PSW = SCIDBS1.password
 else:
-    from ippy.constants import (MYSQL_PSW_READ_ONLY, MYSQL_USER_READ_ONLY,
-                                SCIDBS1)
+    from ippy.constants import MYSQL_PSW_READ_ONLY, MYSQL_USER_READ_ONLY, SCIDBS1
 
     SCIDBS1_HOST = SCIDBS1
     SCIDBS1_USER = MYSQL_USER_READ_ONLY
@@ -495,7 +494,8 @@ class Chunk:
         where exp_id between {self._ref_exp_id[0]} and {self._ref_exp_id[1]}
         and (obs_mode like '%SS%' or obs_mode like '%BRIGHT%') and obs_mode not like 'ENGINEERING' and obs_mode not like 'MANUAL'
         and exp_type like "OBJECT" and comment like "{self.chunk_name}% visit _"
-        and (chipRun.label is NULL or chipRun.label like "{self.label}")
+        and (chipRun.label is NULL or chipRun.label like "{self.label}" or 
+        camRun.label like "{self.label}" or warpRun.label like "{self.label}")
         """
         if self.data_group is not None:
             query += f"and chipRun.data_group like '{self.data_group}'"
