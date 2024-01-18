@@ -64,7 +64,7 @@ Both subclasses supports IO with physical and Nebulous paths. Both enable easy b
 
 ### Nightly Processing
 
-`ippy.processing.nightly_obs` contains classes (`Visit`, `WWDiff`, `Quad`, `Chunk`, and `Night`) that represents nightly observation concepts and methods for queuing diff processing. For most of time, you will only need `Night` and `Chunk`. The lower level classes are used by these two, in a way that a `Night` contains a list of `Chunk` that consist of `Quad` of `Visit` (single exposure) and pairs of `Visit` form `WWDiff` (warp warp difference image). They provide the basis for `check_chunk_progress.py` and `queue_wwdiffs.py`, which are used to monitor the progress of nightly processing and to queue warp$-$warp diff processing, respectively. Below are some examples checking processing of a night and certain chunks.
+`ippy.processing.nightly_obs` contains classes (`Visit`, `WWDiff`, `Quad`, `Chunk`, and `Night`) that represents nightly observation concepts and methods for queuing diff processing. For most of time, you will only need `Night` and `Chunk`. The lower level classes are used by these two, in a way that a `Night` contains a list of `Chunk` that consist of `Quad` of `Visit` (single exposure) and pairs of `Visit` form `WWDiff` (warp warp difference image). They provide the basis for `check_chunk_progress.py` and `queue_wwdiffs.py`, which are used to monitor the progress of nightly processing and to queue warp$`-`$warp diff processing, respectively. Below are some examples checking processing of a night and certain chunks.
 
 ```python
 >>> from ippy.processing import Night, Chunk
