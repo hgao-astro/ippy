@@ -240,7 +240,7 @@ class Quad:
             elif len(not_bad_visits) <= 1:
                 return []
         else:
-            # if observation is not finshed, always stick to v1-v2 and v3-v4
+            # if observation is not finished, always stick to v1-v2 and v3-v4
             not_bad_visits = {v.visit_num: v for v in not_bad_visits}
             visit1 = not_bad_visits.get(1)
             visit2 = not_bad_visits.get(2)
@@ -350,9 +350,6 @@ class Chunk:
         self.needs_desp_diff = None
         self.quads = None
         self.get_quads()
-        # move the following to get_quads()
-        # self.get_obs_status()
-        # self.get_proc_status()
 
     def __str__(self) -> str:
         return f"<Chunk {self.chunk_name} {self.obs_status}: {len(self.select_quads(completed=True))}/{len(self.quads)} quads completed, {len(self.select_quads(processed=True))}/{len(self.select_quads(over_processed=True))}/{len(self.select_quads(partially_processed=True))} fully/over/partially processed, {self.dbname} on {self.dateobs}>"
@@ -414,8 +411,11 @@ class Chunk:
             )
         if None in self._ref_exp_id:
             return None
-        if not self.quads:
+        # check if the chunk is initialized
+        if self.quads is None:
+            # get_quads() will call get_obs_status(), so no need to proceed
             self.get_quads()
+            return None
         if len(self.quads) == 0:
             return None
         # if the last exposure of the night does not belong to the chunk, then the chunk has finished observing
@@ -443,6 +443,13 @@ class Chunk:
             self.obs_status = "in progress"
 
     def get_proc_status(self):
+        # check if the chunk is initialized
+        if self.quads is None:
+            # get_quads() will call get_proc_status(), so no need to proceed
+            self.get_quads()
+            return None
+        if len(self.quads) == 0:
+            return None
         quad_proc_status = [q.get_proc_status() for q in self.quads]
         if "partially processed" in quad_proc_status:
             self.not_done = True
@@ -536,6 +543,8 @@ class Chunk:
                 quad.visits = [v for v in visits if v.object == quad.name]
             self.last_visit = visits[-1]
         else:
+            db_cursor.close()
+            db_conn.close()
             self.quads = []
             self.get_obs_status()
             self.get_proc_status()
@@ -563,16 +572,7 @@ class Chunk:
         # I found that query for diffInputSkyfile with warp_ids first then join other tables is as efficient as
         # limiting diff% tables with max and min diff_id on the given night first and then querying them with warp_ids
         # So, I am using the former method here. This provides extra benefit that we can check for diffs
-        # that are not processed in time, e.g., as late as on another UTC date. Moreover, this saves the query time for max/min diff_ids.
-        # query = f"""
-        # select diff_id, diff_state, warp1, warp2, registered, pub_id, publishRun.state pub_state
-        # from (
-        #     select diff_id, state diff_state, warp1, warp2, registered from diffRun
-        #     left join diffInputSkyfile using (diff_id)
-        #     where diff_id between {self._ref_diff_id[0]} and {self._ref_diff_id[1]} and stack2 is NULL group by diff_id
-        #     ) as WWdiff
-        #     left join publishRun on (diff_id = stage_id)
-        # where warp1 in {tuple(warp_ids_for_query)} and client_id = {17 if self.dbname == 'gpc1' else 3}"""
+        # that are not processed in time, e.g., delayed until another UTC date. Moreover, this saves the query time for max/min diff_ids.
         query = f"""
         select diff_id, diff_state, warp1, warp2, registered, pub_id, publishRun.state pub_state 
         from (
@@ -589,7 +589,6 @@ class Chunk:
         result = db_cursor.fetchall()
         db_cursor.close()
         db_conn.close()
-        # print(result)
         if result:
             wwdiffs = [
                 WWDiff(
