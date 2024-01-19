@@ -73,7 +73,7 @@ def find_raw_imfile(exp_name, ota=None):
         host=SCIDBS1.node, db=dbname, user=SCIDBS1.user, passwd=SCIDBS1.password
     )
     db_cur = db_conn.cursor()
-    query = f"select class_id, uri, fault, quality from rawImfile where exp_name like '{exp_name}'"
+    query = f"select class_id, uri from rawExp join rawImfile using (exp_id) where rawExp.exp_name like '{exp_name}'"
     if ota is not None:
         if isinstance(ota, str):
             query += f" and class_id like '{ota}'"
