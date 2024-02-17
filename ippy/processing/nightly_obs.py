@@ -288,15 +288,19 @@ class Quad:
                     "-set_workdir",
                     pair[0].chip_workdir,
                     "-set_dist_group",
-                    pair[0].chip_dist_group
-                    if pair[0].chip_dist_group is not None
-                    else "NULL",
+                    (
+                        pair[0].chip_dist_group
+                        if pair[0].chip_dist_group is not None
+                        else "NULL"
+                    ),
                     "-set_label",
                     pair[0].chip_label,
                     "-set_data_group",
-                    pair[0].chip_data_group
-                    if pair[0].chip_data_group is not None
-                    else "NULL",
+                    (
+                        pair[0].chip_data_group
+                        if pair[0].chip_data_group is not None
+                        else "NULL"
+                    ),
                     "-set_reduction",
                     pair[0].chip_reduction,
                     "-simple",
@@ -491,7 +495,7 @@ class Chunk:
         left join camProcessedExp using (cam_id)
         left join fakeRun using (cam_id) 
         left join warpRun using (fake_id) 
-        where exp_id between {self._ref_exp_id[0]} and {self._ref_exp_id[1]}
+        where exp_id between {self._ref_exp_id[0]} and {self._ref_exp_id[1]} and dateobs like '{self.dateobs}%'
         and (obs_mode like '%SS%' or obs_mode like '%BRIGHT%') and obs_mode not like 'ENGINEERING' and obs_mode not like 'MANUAL'
         and exp_type like "OBJECT" and comment like "{self.chunk_name}% visit _"
         and (chipRun.label is NULL or chipRun.label like "{self.label}" or 
