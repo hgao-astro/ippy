@@ -18,7 +18,7 @@ from ippy.nebulous import neb_locate
 
 
 def read_chip(data, mask=None):
-    path = Path(data)
+    path = Path(data).expanduser()
     # check if the FITS file exists
     if not path.is_file():
         # check if it is a nebulous path, use the original path because Path(data) will remove extra // in the path
@@ -33,7 +33,7 @@ def read_chip(data, mask=None):
 
 
 def read_cell(data, mask=None, trim_overscan=True):
-    path = Path(data)
+    path = Path(data).expanduser()
     # check if the FITS file exists
     if not path.is_file():
         # check if it is a nebulous path
