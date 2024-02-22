@@ -1,3 +1,4 @@
+import datetime
 import re
 
 import MySQLdb
@@ -94,17 +95,17 @@ def find_raw_imfile(exp_name, ota=None):
         raise ValueError(f"Cannot find raw image file for {exp_name} and OTA {ota}.")
 
 
-def find_active_detrend(time, type, filter=None, dbname="gpc1"):
+def find_active_detrend(type, time=None, filter=None, dbname="gpc1"):
     """
     find active detrend for a given time and type
 
     Parameters
     ----------
-    time : str or datetime.datetime
-        time of the observation
-
     type : str
-        type of detrend, the common ones are "dark", "flat", or "mask"
+    type of detrend, the common ones are "dark", "flat", or "mask"
+
+    time : str or datetime.datetime
+        time of the observation. default is None, which means the current UTC date.
 
     dbname : str, optional, should be gpc1 or gpc2. default is gpc1.
 
@@ -120,6 +121,8 @@ def find_active_detrend(time, type, filter=None, dbname="gpc1"):
     ValueError
         when type is not "dark" or "flat"
     """
+    if time is None:
+        time = datetime.datetime.utcnow()
     db_conn = MySQLdb.connect(
         host=SCIDBS1.node, db=dbname, user=SCIDBS1.user, passwd=SCIDBS1.password
     )
