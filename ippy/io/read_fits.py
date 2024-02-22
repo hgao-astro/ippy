@@ -65,16 +65,16 @@ class ChipHDUList(HDUList):
         hdul = super().fromfile(file, **kwargs)
         if kwargs.get("mode") == "readonly":
             hdul[1].header["extname"] = "data"
-        telescope = hdul[1].header.get("TELESCOP")
-        instrument = hdul[1].header.get("INSTRUME")
-        if telescope == "PS1" or instrument == "gpc1":
-            hdul.camera = GPC1
-        elif telescope == "PS2" or instrument == "gpc2":
-            hdul.camera = GPC2
-        else:
-            hdul.camera = GPC1
-        hdul.telescope = telescope
-        hdul.instrument = instrument
+            telescope = hdul[1].header.get("TELESCOP")
+            instrument = hdul[1].header.get("INSTRUME")
+            if telescope == "PS1" or instrument == "gpc1":
+                hdul.camera = GPC1
+            elif telescope == "PS2" or instrument == "gpc2":
+                hdul.camera = GPC2
+            else:
+                hdul.camera = GPC1
+            hdul.telescope = telescope
+            hdul.instrument = instrument
         return hdul
 
     def add_mask(self, mask_path):
@@ -212,16 +212,17 @@ class CellHDUList(HDUList):
     @classmethod
     def fromfile(cls, file, **kwargs):
         hdul = super().fromfile(file, **kwargs)
-        telescope = hdul[1].header.get("TELESCOP")
-        instrument = hdul[1].header.get("INSTRUME")
-        if telescope == "PS1" or instrument == "gpc1":
-            hdul.camera = GPC1
-        elif telescope == "PS2" or instrument == "gpc2":
-            hdul.camera = GPC2
-        else:
-            hdul.camera = GPC1
-        hdul.telescope = telescope
-        hdul.instrument = instrument
+        if kwargs.get("mode") == "readonly":
+            telescope = hdul[1].header.get("TELESCOP")
+            instrument = hdul[1].header.get("INSTRUME")
+            if telescope == "PS1" or instrument == "gpc1":
+                hdul.camera = GPC1
+            elif telescope == "PS2" or instrument == "gpc2":
+                hdul.camera = GPC2
+            else:
+                hdul.camera = GPC1
+            hdul.telescope = telescope
+            hdul.instrument = instrument
         hdul.trim_overscan = kwargs.get("trim_overscan")
         if hdul.trim_overscan:
             for hdu in hdul[1:]:
