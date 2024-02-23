@@ -226,9 +226,13 @@ class CellHDUList(HDUList):
         hdul.trim_overscan = kwargs.get("trim_overscan")
         if hdul.trim_overscan:
             for hdu in hdul[1:]:
-                hdu.data = hdu.data[
-                    : hdul.camera.cell_num_pix_row, : hdul.camera.cell_num_pix_col
-                ]
+                if hdu.data.shape == (
+                    hdul.camera.cell_num_pix_row_untrimmed,
+                    hdul.camera.cell_num_pix_col_untrimmed,
+                ):
+                    hdu.data = hdu.data[
+                        : hdul.camera.cell_num_pix_row, : hdul.camera.cell_num_pix_col
+                    ]
         return hdul
 
     def add_mask(self, mask_path):
