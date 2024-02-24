@@ -230,12 +230,10 @@ class CellHDUList(HDUList):
             assert len(self) == len(mask_hdul)
             for idx in range(1, len(self)):
                 assert mask_hdul[idx].data.shape == self[idx].data.shape
-            for idx in range(1, len(self)):
                 mask_hdul[idx].header["extname"] = (
                     mask_hdul[idx].header["extname"] + " mask"
                 )
-                self.append(mask_hdul[idx])
-        # TODO: reimplemente this method using HDUList(hdus=[hdu1, hdu2, ...]) instead of appending one by one
+            self.extend(mask_hdul[1 : len(self)])
 
     def get_data(self, cell, masked=False):
         """
