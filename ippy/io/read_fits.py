@@ -1,4 +1,3 @@
-# import re
 from pathlib import Path
 
 import numpy as np
@@ -8,13 +7,6 @@ from matplotlib import pyplot as plt
 
 from ippy.constants import GPC1, GPC2
 from ippy.nebulous import neb_locate
-
-# some regex for checking file names and OTA or cell patterns
-# chip_fits_pattern = re.compile(r"\.XY[0-7][0-7]\.ch\.fits$")
-# chip_mk_fits_pattern = re.compile(r"\.XY[0-7][0-7]\.ch\.mk\.fits$")
-# cell_fits_pattern = re.compile(r"\.XY[0-7][0-7]\.fits$")
-# cell_mk_fits_pattern = re.compile(r"\.XY[0-7][0-7]\.mk\.fits$")
-# cell_pattern = re.compile(r"\.xy[0-7][0-7]")
 
 
 def read_chip(data, mask=None):
@@ -86,11 +78,6 @@ class ChipHDUList(HDUList):
     Args:
         HDUList (class `astropy.io.fits.HDUList`): HDU list class from astropy. Top-level FITS object.
     """
-
-    # def __init__(self, **kwargs):
-    #     super().__init__(**kwargs)
-    # self[1].header["extname"] = "data"
-    # print(self._file.mode, self._file.size, self._file.tell())
 
     def add_mask(self, mask_path):
         if "mask" in [hdu.name for hdu in self]:
@@ -204,18 +191,13 @@ class ChipHDUList(HDUList):
             mk_img = self.get_mask(copy=True)
             if show_mask is True:
                 mk_img[mk_img < 1] = np.nan
-                # mk_img[mk_img >= 1] = 1
             elif type(show_mask) is int:
                 mk_img[mk_img != show_mask] = np.nan
                 mk_img[mk_img == show_mask] = 1
-            # elif type(show_mask) is list:
-            #     for bit in show_mask:
 
         chip_img = self.get_data()
         if ax is None:
             fig, ax = plt.subplots(**kwargs)
-        # cmap = mpl.cm.gray_r.copy()
-        # cmap.set_bad(color="red")
         norm = ImageNormalize(chip_img, interval=ZScaleInterval())
         ax.imshow(chip_img, norm=norm, cmap="gray_r")
         if show_mask:
