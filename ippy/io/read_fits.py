@@ -27,6 +27,17 @@ def read_chip(data, mask=None):
         else:
             raise FileNotFoundError(f"No such file: '{str(data)}'")
     chip_hdul = ChipHDUList.fromfile(path, mode="readonly")
+    chip_hdul[1].header["extname"] = "data"
+    telescope = chip_hdul[1].header.get("TELESCOP")
+    instrument = chip_hdul[1].header.get("INSTRUME")
+    if telescope == "PS1" or instrument == "gpc1":
+        chip_hdul.camera = GPC1
+    elif telescope == "PS2" or instrument == "gpc2":
+        chip_hdul.camera = GPC2
+    else:
+        chip_hdul.camera = GPC1
+    chip_hdul.telescope = telescope
+    chip_hdul.instrument = instrument
     if mask is not None:
         chip_hdul.add_mask(mask)
     return chip_hdul
@@ -41,7 +52,28 @@ def read_cell(data, mask=None, trim_overscan=True):
             path = neb_locate(data)[0]["path"]
         else:
             raise FileNotFoundError(f"No such file: '{str(data)}'")
-    cell_hdul = CellHDUList.fromfile(path, mode="readonly", trim_overscan=trim_overscan)
+    cell_hdul = CellHDUList.fromfile(path, mode="readonly")
+    telescope = cell_hdul[1].header.get("TELESCOP")
+    instrument = cell_hdul[1].header.get("INSTRUME")
+    if telescope == "PS1" or instrument == "gpc1":
+        cell_hdul.camera = GPC1
+    elif telescope == "PS2" or instrument == "gpc2":
+        cell_hdul.camera = GPC2
+    else:
+        cell_hdul.camera = GPC1
+    cell_hdul.telescope = telescope
+    cell_hdul.instrument = instrument
+    cell_hdul.trim_overscan = trim_overscan
+    if cell_hdul.trim_overscan:
+        for hdu in cell_hdul[1:]:
+            if hdu.data.shape == (
+                cell_hdul.camera.cell_num_pix_row_untrimmed,
+                cell_hdul.camera.cell_num_pix_col_untrimmed,
+            ):
+                hdu.data = hdu.data[
+                    : cell_hdul.camera.cell_num_pix_row,
+                    : cell_hdul.camera.cell_num_pix_col,
+                ]
     if mask is not None:
         cell_hdul.add_mask(mask)
     return cell_hdul
@@ -59,23 +91,6 @@ class ChipHDUList(HDUList):
     #     super().__init__(**kwargs)
     # self[1].header["extname"] = "data"
     # print(self._file.mode, self._file.size, self._file.tell())
-
-    @classmethod
-    def fromfile(cls, file, **kwargs):
-        hdul = super().fromfile(file, **kwargs)
-        if kwargs.get("mode") == "readonly":
-            hdul[1].header["extname"] = "data"
-            telescope = hdul[1].header.get("TELESCOP")
-            instrument = hdul[1].header.get("INSTRUME")
-            if telescope == "PS1" or instrument == "gpc1":
-                hdul.camera = GPC1
-            elif telescope == "PS2" or instrument == "gpc2":
-                hdul.camera = GPC2
-            else:
-                hdul.camera = GPC1
-            hdul.telescope = telescope
-            hdul.instrument = instrument
-        return hdul
 
     def add_mask(self, mask_path):
         if "mask" in [hdu.name for hdu in self]:
@@ -209,32 +224,6 @@ class ChipHDUList(HDUList):
 
 
 class CellHDUList(HDUList):
-    @classmethod
-    def fromfile(cls, file, **kwargs):
-        hdul = super().fromfile(file, **kwargs)
-        if kwargs.get("mode") == "readonly":
-            telescope = hdul[1].header.get("TELESCOP")
-            instrument = hdul[1].header.get("INSTRUME")
-            if telescope == "PS1" or instrument == "gpc1":
-                hdul.camera = GPC1
-            elif telescope == "PS2" or instrument == "gpc2":
-                hdul.camera = GPC2
-            else:
-                hdul.camera = GPC1
-            hdul.telescope = telescope
-            hdul.instrument = instrument
-        hdul.trim_overscan = kwargs.get("trim_overscan")
-        if hdul.trim_overscan:
-            for hdu in hdul[1:]:
-                if hdu.data.shape == (
-                    hdul.camera.cell_num_pix_row_untrimmed,
-                    hdul.camera.cell_num_pix_col_untrimmed,
-                ):
-                    hdu.data = hdu.data[
-                        : hdul.camera.cell_num_pix_row, : hdul.camera.cell_num_pix_col
-                    ]
-        return hdul
-
     def add_mask(self, mask_path):
         """
         append HDUList of the mask images to the data HDUList. Extremely slow because HDU can only be appended one by one.
@@ -255,7 +244,7 @@ class CellHDUList(HDUList):
                 mask_path = neb_locate(mask_path)[0]["path"]
             else:
                 raise FileNotFoundError(f"No such file: '{str(mask_path)}'")
-        with CellHDUList.fromfile(mask_path, mode="readonly") as mask_hdul:
+        with read_cell(mask_path, trim_overscan=self.trim_overscan) as mask_hdul:
             assert len(self) == len(mask_hdul)
             for idx in range(1, len(self)):
                 assert mask_hdul[idx].data.shape == self[idx].data.shape
