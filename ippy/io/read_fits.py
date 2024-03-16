@@ -27,7 +27,7 @@ def read_chip(data, mask=None):
     elif telescope == "PS2" or instrument == "gpc2":
         chip_hdul.camera = GPC2
     else:
-        chip_hdul.camera = GPC1
+        raise ValueError("Telescope or instrument not recognized.")
     chip_hdul.telescope = telescope
     chip_hdul.instrument = instrument
     if mask is not None:
@@ -45,14 +45,14 @@ def read_cell(data, mask=None, trim_overscan=True):
         else:
             raise FileNotFoundError(f"No such file: '{str(data)}'")
     cell_hdul = CellHDUList.fromfile(path, mode="readonly")
-    telescope = cell_hdul[1].header.get("TELESCOP")
-    instrument = cell_hdul[1].header.get("INSTRUME")
+    telescope = cell_hdul[0].header.get("TELESCOP")
+    instrument = cell_hdul[0].header.get("INSTRUME")
     if telescope == "PS1" or instrument == "gpc1":
         cell_hdul.camera = GPC1
     elif telescope == "PS2" or instrument == "gpc2":
         cell_hdul.camera = GPC2
     else:
-        cell_hdul.camera = GPC1
+        raise ValueError("Telescope or instrument not recognized.")
     cell_hdul.telescope = telescope
     cell_hdul.instrument = instrument
     cell_hdul.trim_overscan = trim_overscan
