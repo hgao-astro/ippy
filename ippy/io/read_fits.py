@@ -293,6 +293,7 @@ class CellHDUList(HDUList):
 
     def assemble_chip(
         self,
+        no_gap=False,
         trim_overscan=True,
         mask_data=False,
         mask_cells=None,
@@ -378,6 +379,17 @@ class CellHDUList(HDUList):
                         cell_img[:, :] = np.nan
                 # reverse the cell pixels in the x direction
                 cell_img = cell_img[:, ::-1]
+                if not no_gap:
+                    # add gaps (filled with nans) between cells
+                    cell_img = np.pad(
+                        cell_img,
+                        (
+                            (0, self.camera.cell_num_pix_row_gap),
+                            (0, self.camera.cell_num_pix_col_gap),
+                        ),
+                        mode="constant",
+                        constant_values=np.nan,
+                    )
                 if x == 0:
                     row_img = cell_img
                 else:
@@ -387,6 +399,16 @@ class CellHDUList(HDUList):
                 chip_img = row_img
             else:
                 chip_img = np.vstack((chip_img, row_img))
+        # remove the extra gap
+        if not no_gap:
+            chip_img = chip_img[
+                : -self.camera.cell_num_pix_row_gap, : -self.camera.cell_num_pix_col_gap
+            ]
         if trim_overscan:
             self.trim_overscan = True
+        if chip_img.shape != (
+            self.camera.chip_num_pix_row,
+            self.camera.chip_num_pix_col,
+        ):
+            raise ValueError("Chip image shape does not match camera specification.")
         return chip_img
