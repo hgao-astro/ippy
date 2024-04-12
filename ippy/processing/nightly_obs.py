@@ -305,6 +305,8 @@ class Quad:
                     pair[0].chip_reduction,
                     "-simple",
                     "-rerun",
+                    "-good_frac",
+                    "0.1",
                 ]
                 if pretend:
                     run_difftool_cmd.append("-pretend")
