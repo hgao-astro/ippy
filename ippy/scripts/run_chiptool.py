@@ -21,37 +21,42 @@ from ippy.misc import expname_pattern, infer_inst_from_expname
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
-        description="Run chiptool with given expnames, label, and reduction class."
+        description="Run chiptool with given expnames/chunks, label, and reduction class."
     )
     parser.add_argument("label", help="The label for this run")
     parser.add_argument("reduction", help="The reduction class for this run")
-    parser.add_argument(
+    expname_or_chunk = parser.add_mutually_exclusive_group(required=True)
+    expname_or_chunk.add_argument(
         "--expnames",
         type=str,
         nargs="*",
         # default=None,
         help="Exposure names or files that contain the exposure names to be processed. Separated by space.",
     )
-    parser.add_argument(
+    expname_or_chunk.add_argument(
         "--chunk",
         type=str,
         nargs="*",
         # default=None,
-        help="Chunk of exposures to be processed. Dateobs must be supplied as well. Separated by space.",
+        help="Chunk names of exposures to be processed. Separated by space. --dateobs and --dbname must be supplied as well.",
     )
-    parser.add_argument(
+    chunk_spec = parser.add_argument_group(
+        "Chunk Specifications",
+        "Must be supplied together with --chunk to unambiguously identify the chunks to be processed.",
+    )
+    chunk_spec.add_argument(
         "--dateobs",
         type=str,
         nargs="*",
         # default=None,
-        help="Dateobs of chunks of exposures to be processed. Must be in the same order. Separated by space.",
+        help="dateobs of chunks to be processed. Separated by space. Must be in the same order as --chunk. If length is one, it will be broadcasted to the length of --chunk.",
     )
-    parser.add_argument(
+    chunk_spec.add_argument(
         "--dbname",
         type=str,
         nargs="*",
         # default=None,
-        help="dbname of chunks of exposures to be processed. Must be in the same order. Separated by space.",
+        help="dbname of chunks of exposures to be processed. Separated by space. Must be in the same order as --chunk. If length is one, it will be broadcasted to the length of --chunk.",
     )
     parser.add_argument(
         "--version",
@@ -124,11 +129,20 @@ if __name__ == "__main__":
                 raise ValueError("No valid exposure name found.")
     else:
         valid_expnames = []
+        # check lengths of chunk, dateobs, and dbname and broadcast if necessary
+        if args.chunk is None or args.dateobs is None or args.dbname is None:
+            parser.error("--chunk, --dateobs, and --dbname must be supplied together.")
+        if len(args.chunk) != len(args.dateobs):
+            if len(args.dateobs) == 1:
+                args.dateobs = args.dateobs * len(args.chunk)
+            else:
+                parser.error("Length of dateobs must be the same as chunk or 1.")
+        if len(args.chunk) != len(args.dbname):
+            if len(args.dbname) == 1:
+                args.dbname = args.dbname * len(args.chunk)
+            else:
+                parser.error("Length of dbname must be the same as chunk or 1.")
         for chunk, dateobs, dbname in zip(args.chunk, args.dateobs, args.dbname):
-            if chunk is None or dateobs is None or dbname is None:
-                raise ValueError(
-                    "chunk, dateobs, and dbname must be supplied together."
-                )
             db_conn = MySQLdb.connect(
                 host=SCIDBS1.node,
                 user=SCIDBS1.user,
@@ -144,6 +158,8 @@ if __name__ == "__main__":
             db_cursor.close()
             db_conn.close()
             valid_expnames.extend([r[0] for r in result])
+    if len(valid_expnames) == 0:
+        raise ValueError("No valid exposures found.")
 
     for expname in valid_expnames:
         dbname = infer_inst_from_expname(expname)
