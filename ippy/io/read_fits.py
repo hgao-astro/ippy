@@ -406,9 +406,14 @@ class CellHDUList(HDUList):
             ]
         if trim_overscan:
             self.trim_overscan = True
-        if chip_img.shape != (
-            self.camera.chip_num_pix_row,
-            self.camera.chip_num_pix_col,
+        if (
+            trim_overscan
+            and not no_gap
+            and chip_img.shape
+            != (
+                self.camera.chip_num_pix_row,
+                self.camera.chip_num_pix_col,
+            )
         ):
             raise ValueError("Chip image shape does not match camera specification.")
         return chip_img
