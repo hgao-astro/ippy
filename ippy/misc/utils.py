@@ -220,4 +220,4 @@ def cells_to_binary(cells):
     binary_number = 0
     for cell in cells:
         binary_number |= 1 << int(cell[2:], 8)
-    return format(binary_number, "064b")
+    return format(binary_number, "064b")[::-1]
