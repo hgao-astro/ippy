@@ -201,3 +201,23 @@ def find_detrend_imfile(det_id, ota=None, iteration=None, dbname="gpc1"):
         raise ValueError(
             f"Cannot find detrended file for {dbname} det_id={det_id}, iteration={iteration}, and OTA={ota}."
         )
+
+
+def cells_to_binary(cells):
+    """Converts a list of cells to a binary number.
+
+    Args:
+        cells (list): A list of cells in the format ["xy10", "xy23", "xy67"].
+
+    Returns:
+        str: A 64 bit binary number representing the list of cells. Each bit is zero unless the corresponding cell is present.
+        The output string is useful for per-cell configuration of applying pattern row correction or not.
+    """
+    if not isinstance(cells, list):
+        cells = [cells]
+    if not all(isinstance(cell, str) for cell in cells):
+        raise ValueError("All elements in cells must be strings.")
+    binary_number = 0
+    for cell in cells:
+        binary_number |= 1 << int(cell[2:], 8)
+    return format(binary_number, "064b")
