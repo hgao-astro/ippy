@@ -203,14 +203,14 @@ def find_detrend_imfile(det_id, ota=None, iteration=None, dbname="gpc1"):
         )
 
 
-def cells_to_binary(cells):
+def cells_to_binary(cells, flag=True):
     """Converts a list of cells to a binary number.
 
     Args:
         cells (list): A list of cells in the format ["xy10", "xy23", "xy67"].
 
     Returns:
-        str: A 64 bit binary number representing the list of cells. Each bit is zero unless the corresponding cell is present.
+        str: A 64 bit binary number representing the list of cells. Each bit is zero (one) unless the corresponding cell is present, if flag is True (False).
         The output string is useful for per-cell configuration of applying pattern row correction or not.
     """
     if not isinstance(cells, list):
@@ -220,4 +220,7 @@ def cells_to_binary(cells):
     binary_number = 0
     for cell in cells:
         binary_number |= 1 << int(cell[2:], 8)
+    # if flag is False, invert the binary number
+    if not flag:
+        binary_number = ~binary_number & 2**64 - 1
     return format(binary_number, "064b")[::-1]
