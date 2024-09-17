@@ -60,9 +60,9 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--version",
-        help="""Version of the processing. Sometimes processing may fail or the data were processed with undesired setup. 
-        In this case, we need to reprocess the data with a new version number. It will be used to append to the end of the 
-        datagroup and default workdir.""",
+        help="""String to represent the version of the processing. Sometimes processing may fail or the data were processed with undesired setup. 
+        In this case, we need to reprocess the data with a new identifier, such as a different datagroup. The string will be used to append to the end of the default
+        datagroup and workdir.""",
     )
     parser.add_argument(
         "--end_stage",
@@ -86,7 +86,7 @@ if __name__ == "__main__":
     datagroup = f"{label}.{reduction}.{date}"
     if args.version is not None:
         # workdir += f".v{args.version}"
-        datagroup += f".v{args.version}"
+        datagroup += f".{args.version}"
     common_opts = [
         "-definebyquery",
         "-set_reduction",
@@ -168,7 +168,7 @@ if __name__ == "__main__":
         else:
             workdir = eval(f"f'neb://@HOST@.0/{args.workdir}'")
         if args.version is not None:
-            workdir += f".v{args.version}"
+            workdir += f".{args.version}"
         run_chiptool_cmd = [
             "chiptool",
             *common_opts,
